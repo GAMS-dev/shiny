@@ -136,8 +136,8 @@
     var double_html =
         '<span class="irs-shadow shadow-from"></span>' +
         '<span class="irs-shadow shadow-to"></span>' +
-        '<span class="irs-slider from"></span>' +
-        '<span class="irs-slider to"></span>';
+        '<span class="irs-slider from"><i></i></span>' +
+        '<span class="irs-slider to"><i></i></span>';
 
     var disable_html =
         '<span class="irs-disable-mask"></span>';
@@ -803,7 +803,7 @@
             if ($.contains(this.$cache.cont[0], e.target) || this.dragging) {
                 this.callOnFinish();
             }
-            
+
             this.dragging = false;
         },
 
