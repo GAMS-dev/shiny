@@ -1,5 +1,3 @@
-shiny 1.4.0.9000
-===========
 
 ## Full changelog
 
@@ -18,6 +16,17 @@ shiny 1.4.0.9000
 * Fixed [#2653](https://github.com/rstudio/shiny/issues/2653): The `dataTableOutput()` could have incorrect output if certain characters were in the column names. ([#2658](https://github.com/rstudio/shiny/pull/2658))
 
 ### Documentation Updates
+=======
+shiny 1.4.0.2
+===========
+
+Minor patch release: fixed some timing-dependent tests failed intermittently on CRAN build machines.
+
+
+shiny 1.4.0.1
+===========
+
+Minor patch release to account for changes to the grid package that will be upcoming in the R 4.0 release ([#2776](https://github.com/rstudio/shiny/pull/2776)).
 
 
 shiny 1.4.0
