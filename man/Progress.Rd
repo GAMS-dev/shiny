@@ -4,9 +4,13 @@
 \alias{Progress}
 \title{Reporting progress (object-oriented API)}
 \description{
-Reports progress to the user during long-running operations.
+Reporting progress (object-oriented API)
+
+Reporting progress (object-oriented API)
 }
 \details{
+Reports progress to the user during long-running operations.
+
 This package exposes two distinct programming APIs for working with
 progress. \code{\link[=withProgress]{withProgress()}} and \code{\link[=setProgress]{setProgress()}}
 together provide a simple function-based interface, while the
@@ -24,26 +28,6 @@ CSS), you can use \code{style="old"} each time you call
 \code{Progress$new} is called, you can instead call
 \code{\link[=shinyOptions]{shinyOptions(progress.style="old")}} just once, inside the server
 function.
-
-\strong{Methods}
-\describe{
-\item{\code{initialize(session, min = 0, max = 1)}}{
-Creates a new progress panel (but does not display it).
-}
-\item{\code{set(value = NULL, message = NULL, detail = NULL)}}{
-Updates the progress panel. When called the first time, the
-progress panel is displayed.
-}
-\item{\code{inc(amount = 0.1, message = NULL, detail = NULL)}}{
-Like \code{set}, this updates the progress panel. The difference is
-that \code{inc} increases the progress bar by \code{amount}, instead
-of setting it to a specific value.
-}
-\item{\code{close()}}{
-Removes the progress panel. Future calls to \code{set} and
-\code{close} will be ignored.
-}
-}
 }
 \examples{
 ## Only run examples in interactive R sessions
@@ -85,11 +69,14 @@ shinyApp(ui, server)
 \item \href{#method-getMax}{\code{Progress$getMax()}}
 \item \href{#method-getValue}{\code{Progress$getValue()}}
 \item \href{#method-close}{\code{Progress$close()}}
+\item \href{#method-clone}{\code{Progress$clone()}}
 }
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-new"></a>}}
+\if{latex}{\out{\hypertarget{method-new}{}}}
 \subsection{Method \code{new()}}{
+Creates a new progress panel (but does not display it).
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{Progress$new(
   session = getDefaultReactiveDomain(),
@@ -102,26 +89,29 @@ shinyApp(ui, server)
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{session}}{The Shiny session object, as provided by
-\code{shinyServer} to the server function.}
+\item{\code{session}}{The Shiny session object, as provided by \code{shinyServer} to
+the server function.}
 
-\item{\code{min}}{The value that represents the starting point of the
-progress bar. Must be less than \code{max}.}
+\item{\code{min}}{The value that represents the starting point of the progress
+bar. Must be less than \code{max}.}
 
-\item{\code{max}}{The value that represents the end of the progress bar.
-Must be greater than \code{min}.}
+\item{\code{max}}{The value that represents the end of the progress bar. Must be
+greater than \code{min}.}
 
 \item{\code{style}}{Progress display style. If \code{"notification"} (the default),
 the progress indicator will show using Shiny's notification API. If
-\code{"old"}, use the same HTML and CSS used in Shiny 0.13.2 and below
-(this is for backward-compatibility).}
+\code{"old"}, use the same HTML and CSS used in Shiny 0.13.2 and below (this
+is for backward-compatibility).}
 }
 \if{html}{\out{</div>}}
 }
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-set"></a>}}
+\if{latex}{\out{\hypertarget{method-set}{}}}
 \subsection{Method \code{set()}}{
+Updates the progress panel. When called the first time, the
+progress panel is displayed.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{Progress$set(value = NULL, message = NULL, detail = NULL)}\if{html}{\out{</div>}}
 }
@@ -129,24 +119,28 @@ the progress indicator will show using Shiny's notification API. If
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{value}}{A numeric value at which to set
-the progress bar, relative to \code{min} and \code{max}.}
+\item{\code{value}}{Single-element numeric vector; the value at which to set the
+progress bar, relative to \code{min} and \code{max}. \code{NULL} hides the progress
+bar, if it is currently visible.}
 
 \item{\code{message}}{A single-element character vector; the message to be
-displayed to the user, or \code{NULL} to hide the current message
-(if any).}
+displayed to the user, or \code{NULL} to hide the current message (if any).}
 
-\item{\code{detail}}{A single-element character vector; the detail message
-to be displayed to the user, or \code{NULL} to hide the current
-detail message (if any). The detail message will be shown with a
-de-emphasized appearance relative to \code{message}.}
+\item{\code{detail}}{A single-element character vector; the detail message to be
+displayed to the user, or \code{NULL} to hide the current detail message (if
+any). The detail message will be shown with a de-emphasized appearance
+relative to \code{message}.}
 }
 \if{html}{\out{</div>}}
 }
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-inc"></a>}}
+\if{latex}{\out{\hypertarget{method-inc}{}}}
 \subsection{Method \code{inc()}}{
+Like \code{set}, this updates the progress panel. The difference
+is that \code{inc} increases the progress bar by \code{amount}, instead of
+setting it to a specific value.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{Progress$inc(amount = 0.1, message = NULL, detail = NULL)}\if{html}{\out{</div>}}
 }
@@ -154,28 +148,25 @@ de-emphasized appearance relative to \code{message}.}
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{amount}}{Single-element numeric vector; the value at which to set
-the progress bar, relative to \code{min} and \code{max}.
-\code{NULL} hides the progress bar, if it is currently visible.}
-
 \item{\code{amount}}{For the \code{inc()} method, a numeric value to increment the
 progress bar.}
 
 \item{\code{message}}{A single-element character vector; the message to be
-displayed to the user, or \code{NULL} to hide the current message
-(if any).}
+displayed to the user, or \code{NULL} to hide the current message (if any).}
 
-\item{\code{detail}}{A single-element character vector; the detail message
-to be displayed to the user, or \code{NULL} to hide the current
-detail message (if any). The detail message will be shown with a
-de-emphasized appearance relative to \code{message}.}
+\item{\code{detail}}{A single-element character vector; the detail message to be
+displayed to the user, or \code{NULL} to hide the current detail message (if
+any). The detail message will be shown with a de-emphasized appearance
+relative to \code{message}.}
 }
 \if{html}{\out{</div>}}
 }
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-getMin"></a>}}
+\if{latex}{\out{\hypertarget{method-getMin}{}}}
 \subsection{Method \code{getMin()}}{
+Returns the minimum value.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{Progress$getMin()}\if{html}{\out{</div>}}
 }
@@ -183,7 +174,9 @@ de-emphasized appearance relative to \code{message}.}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-getMax"></a>}}
+\if{latex}{\out{\hypertarget{method-getMax}{}}}
 \subsection{Method \code{getMax()}}{
+Returns the maximum value.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{Progress$getMax()}\if{html}{\out{</div>}}
 }
@@ -191,7 +184,9 @@ de-emphasized appearance relative to \code{message}.}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-getValue"></a>}}
+\if{latex}{\out{\hypertarget{method-getValue}{}}}
 \subsection{Method \code{getValue()}}{
+Returns the current value.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{Progress$getValue()}\if{html}{\out{</div>}}
 }
@@ -199,10 +194,30 @@ de-emphasized appearance relative to \code{message}.}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-close"></a>}}
+\if{latex}{\out{\hypertarget{method-close}{}}}
 \subsection{Method \code{close()}}{
+Removes the progress panel. Future calls to \code{set} and
+\code{close} will be ignored.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{Progress$close()}\if{html}{\out{</div>}}
 }
 
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-clone"></a>}}
+\if{latex}{\out{\hypertarget{method-clone}{}}}
+\subsection{Method \code{clone()}}{
+The objects of this class are cloneable with this method.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{Progress$clone(deep = FALSE)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{deep}}{Whether to make a deep clone.}
+}
+\if{html}{\out{</div>}}
+}
 }
 }

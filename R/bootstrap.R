@@ -464,14 +464,12 @@ helpText <- function(...) {
 
 #' Create a tab panel
 #'
-#' Create a tab panel that can be included within a [tabsetPanel()] or
-#' a [navbarPage()].
 #'
 #' @param title Display title for tab
 #' @param ... UI elements to include within the tab
 #' @param value The value that should be sent when `tabsetPanel` reports
 #'   that this tab is selected. If omitted and `tabsetPanel` has an
-#'   `id`, then the title will be used..
+#'   `id`, then the title will be used.
 #' @param icon Optional icon to appear on the tab. This attribute is only
 #' valid when using a `tabPanel` within a [navbarPage()].
 #' @return A tab that can be passed to [tabsetPanel()]
@@ -489,12 +487,29 @@ helpText <- function(...) {
 #'   )
 #' )
 #' @export
+#' @describeIn tabPanel Create a tab panel that can be included within a [tabsetPanel()] or a [navbarPage()].
 tabPanel <- function(title, ..., value = title, icon = NULL) {
-  divTag <- div(class="tab-pane",
-                title=title,
-                `data-value`=value,
-                `data-icon-class` = iconClass(icon),
-                ...)
+  div(
+    class = "tab-pane",
+    title = title,
+    `data-value` = value,
+    `data-icon-class` = iconClass(icon),
+    ...
+  )
+}
+#' @export
+#' @describeIn tabPanel Create a tab panel that drops the title argument.
+#'   This function should be used within `tabsetPanel(type = "hidden")`. See [tabsetPanel()] for example usage.
+tabPanelBody <- function(value, ..., icon = NULL) {
+  if (
+    !is.character(value) ||
+    length(value) != 1 ||
+    any(is.na(value)) ||
+    nchar(value) == 0
+  ) {
+    stop("`value` must be a single, non-empty string value")
+  }
+  tabPanel(title = NULL, ..., value = value, icon = icon)
 }
 
 #' Create a tabset panel
@@ -510,8 +525,13 @@ tabPanel <- function(title, ..., value = title, icon = NULL) {
 #' @param selected The `value` (or, if none was supplied, the `title`)
 #'   of the tab that should be selected by default. If `NULL`, the first
 #'   tab will be selected.
-#' @param type Use "tabs" for the standard look; Use "pills" for a more plain
-#'   look where tabs are selected using a background fill color.
+#' @param type  \describe{
+#'   \item{`"tabs"`}{Standard tab look}
+#'   \item{`"pills"`}{Selected tabs use the background fill color}
+#'   \item{`"hidden"`}{Hides the selectable tabs. Use `type = "hidden"` in
+#'   conjunction with [tabPanelBody()] and [updateTabsetPanel()] to control the
+#'   active tab via other input controls. (See example below)}
+#' }
 #' @param position This argument is deprecated; it has been discontinued in
 #'   Bootstrap 3.
 #' @return A tabset that can be passed to [mainPanel()]
@@ -529,11 +549,40 @@ tabPanel <- function(title, ..., value = title, icon = NULL) {
 #'     tabPanel("Table", tableOutput("table"))
 #'   )
 #' )
+#'
+#' ui <- fluidPage(
+#'   sidebarLayout(
+#'     sidebarPanel(
+#'       radioButtons("controller", "Controller", 1:3, 1)
+#'     ),
+#'     mainPanel(
+#'       tabsetPanel(
+#'         id = "hidden_tabs",
+#'         # Hide the tab values.
+#'         # Can only switch tabs by using `updateTabsetPanel()`
+#'         type = "hidden",
+#'         tabPanelBody("panel1", "Panel 1 content"),
+#'         tabPanelBody("panel2", "Panel 2 content"),
+#'         tabPanelBody("panel3", "Panel 3 content")
+#'       )
+#'     )
+#'   )
+#' )
+#'
+#' server <- function(input, output, session) {
+#'   observeEvent(input$controller, {
+#'     updateTabsetPanel(session, "hidden_tabs", selected = paste0("panel", input$controller))
+#'   })
+#' }
+#'
+#' if (interactive()) {
+#'   shinyApp(ui, server)
+#' }
 #' @export
 tabsetPanel <- function(...,
                         id = NULL,
                         selected = NULL,
-                        type = c("tabs", "pills"),
+                        type = c("tabs", "pills", "hidden"),
                         position = NULL) {
   if (!is.null(position)) {
     shinyDeprecated(msg = paste("tabsetPanel: argument 'position' is deprecated;",
@@ -842,41 +891,8 @@ verbatimTextOutput <- function(outputId, placeholder = FALSE) {
 #' @rdname plotOutput
 #' @export
 imageOutput <- function(outputId, width = "100%", height="400px",
-                        click = NULL, dblclick = NULL,
-                        hover = NULL, hoverDelay = NULL, hoverDelayType = NULL,
-                        brush = NULL,
-                        clickId = NULL, hoverId = NULL,
+                        click = NULL, dblclick = NULL, hover = NULL, brush = NULL,
                         inline = FALSE) {
-
-  if (!is.null(clickId)) {
-    shinyDeprecated(
-      msg = paste("The 'clickId' argument is deprecated. ",
-                  "Please use 'click' instead. ",
-                  "See ?imageOutput or ?plotOutput for more information."),
-      version = "0.11.1"
-    )
-    click <- clickId
-  }
-
-  if (!is.null(hoverId)) {
-    shinyDeprecated(
-      msg = paste("The 'hoverId' argument is deprecated. ",
-                  "Please use 'hover' instead. ",
-                  "See ?imageOutput or ?plotOutput for more information."),
-      version = "0.11.1"
-    )
-    hover <- hoverId
-  }
-
-  if (!is.null(hoverDelay) || !is.null(hoverDelayType)) {
-    shinyDeprecated(
-      msg = paste("The 'hoverDelay'and 'hoverDelayType' arguments are deprecated. ",
-                  "Please use 'hoverOpts' instead. ",
-                  "See ?imageOutput or ?plotOutput for more information."),
-      version = "0.11.1"
-    )
-    hover <- hoverOpts(id = hover, delay = hoverDelay, delayType = hoverDelayType)
-  }
 
   style <- if (!inline) {
     paste("width:", validateCssUnit(width), ";", "height:", validateCssUnit(height))
@@ -984,14 +1000,6 @@ imageOutput <- function(outputId, width = "100%", height="400px",
 #'   named list with `x` and `y` elements indicating the mouse
 #'   position. To control the hover time or hover delay type, you must use
 #'   [hoverOpts()].
-#' @param clickId Deprecated; use `click` instead. Also see the
-#'   [clickOpts()] function.
-#' @param hoverId Deprecated; use `hover` instead. Also see the
-#'   [hoverOpts()] function.
-#' @param hoverDelay Deprecated; use `hover` instead. Also see the
-#'   [hoverOpts()] function.
-#' @param hoverDelayType Deprecated; use `hover` instead. Also see the
-#'   [hoverOpts()] function.
 #' @param brush Similar to the `click` argument, this can be `NULL`
 #'   (the default), a string, or an object created by the
 #'   [brushOpts()] function. If you use a value like
@@ -1175,16 +1183,12 @@ imageOutput <- function(outputId, width = "100%", height="400px",
 #' }
 #' @export
 plotOutput <- function(outputId, width = "100%", height="400px",
-                       click = NULL, dblclick = NULL,
-                       hover = NULL, hoverDelay = NULL, hoverDelayType = NULL,
-                       brush = NULL,
-                       clickId = NULL, hoverId = NULL,
+                       click = NULL, dblclick = NULL, hover = NULL, brush = NULL,
                        inline = FALSE) {
 
   # Result is the same as imageOutput, except for HTML class
   res <- imageOutput(outputId, width, height, click, dblclick,
-                     hover, hoverDelay, hoverDelayType, brush,
-                     clickId, hoverId, inline)
+                     hover, brush, inline)
 
   res$attribs$class <- "shiny-plot-output"
   res
@@ -1309,18 +1313,25 @@ uiOutput <- htmlOutput
 #'
 #' @examples
 #' \dontrun{
-#' # In server.R:
-#' output$downloadData <- downloadHandler(
-#'   filename = function() {
-#'     paste('data-', Sys.Date(), '.csv', sep='')
-#'   },
-#'   content = function(con) {
-#'     write.csv(data, con)
-#'   }
+#' ui <- fluidPage(
+#'   downloadButton("downloadData", "Download")
 #' )
 #'
-#' # In ui.R:
-#' downloadLink('downloadData', 'Download')
+#' server <- function(input, output) {
+#'   # Our dataset
+#'   data <- mtcars
+#'
+#'   output$downloadData <- downloadHandler(
+#'     filename = function() {
+#'       paste("data-", Sys.Date(), ".csv", sep="")
+#'     },
+#'     content = function(file) {
+#'       write.csv(data, file)
+#'     }
+#'   )
+#' }
+#'
+#' shinyApp(ui, server)
 #' }
 #'
 #' @aliases downloadLink
@@ -1358,7 +1369,7 @@ downloadLink <- function(outputId, label="Download", class=NULL, ...) {
 #'
 #' @param name Name of icon. Icons are drawn from the
 #'   [Font Awesome Free](https://fontawesome.com/) (currently icons from
-#'   the v5.3.1 set are supported with the v4 naming convention) and
+#'   the v5.13.0 set are supported with the v4 naming convention) and
 #'   [Glyphicons](http://getbootstrap.com/components/#glyphicons)
 #'   libraries. Note that the "fa-" and "glyphicon-" prefixes should not be used
 #'   in icon names (i.e. the "fa-calendar" icon should be referred to as
@@ -1416,7 +1427,7 @@ icon <- function(name, class = NULL, lib = "font-awesome") {
   # font-awesome needs an additional dependency (glyphicon is in bootstrap)
   if (lib == "font-awesome") {
     htmlDependencies(iconTag) <- htmlDependency(
-      "font-awesome", "5.3.1", "www/shared/fontawesome", package = "shiny",
+      "font-awesome", "5.13.0", "www/shared/fontawesome", package = "shiny",
       stylesheet = c(
         "css/all.min.css",
         "css/v4-shims.min.css"

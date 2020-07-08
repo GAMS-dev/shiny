@@ -82,7 +82,7 @@ see \code{\link[=validateCssUnit]{validateCssUnit()}}.}
 format string, to be passed to the Javascript strftime library. See
 \url{https://github.com/samsonjs/strftime} for more details. The allowed
 format specifications are very similar, but not identical, to those for R's
-\code{\link[base:strftime]{base::strftime()}} function. For Dates, the default is \code{"\%F"}
+\code{\link[base:strptime]{base::strftime()}} function. For Dates, the default is \code{"\%F"}
 (like \code{"2015-07-01"}), and for POSIXt, the default is \code{"\%F \%T"}
 (like \code{"2015-07-01 15:32:10"}).}
 
@@ -144,16 +144,20 @@ shinyApp(ui, server)
 \seealso{
 \code{\link[=updateSliderInput]{updateSliderInput()}}
 
-Other input elements: \code{\link{actionButton}()},
-  \code{\link{checkboxGroupInput}()},
-  \code{\link{checkboxInput}()}, \code{\link{dateInput}()},
-  \code{\link{dateRangeInput}()},
-  \code{\link{fileInput}()}, \code{\link{numericInput}()},
-  \code{\link{passwordInput}()},
-  \code{\link{radioButtons}()},
-  \code{\link{selectInput}()},
-  \code{\link{submitButton}()},
-  \code{\link{textAreaInput}()}, \code{\link{textInput}()},
-  \code{\link{varSelectInput}()}
+Other input elements: 
+\code{\link{actionButton}()},
+\code{\link{checkboxGroupInput}()},
+\code{\link{checkboxInput}()},
+\code{\link{dateInput}()},
+\code{\link{dateRangeInput}()},
+\code{\link{fileInput}()},
+\code{\link{numericInput}()},
+\code{\link{passwordInput}()},
+\code{\link{radioButtons}()},
+\code{\link{selectInput}()},
+\code{\link{submitButton}()},
+\code{\link{textAreaInput}()},
+\code{\link{textInput}()},
+\code{\link{varSelectInput}()}
 }
 \concept{input elements}

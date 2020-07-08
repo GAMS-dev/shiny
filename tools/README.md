@@ -129,7 +129,7 @@ To create a new patch:
 
 ### Updating
 
-[ion.rangeSlider](https://github.com/IonDen/ion.rangeSlider) can be updated with the script `updateBootstrapDatepicker.R`. That script downloads a specific version of ion.rangeSlider and applies our patches in tools/ion.rangeSlider-patches.
+[ion.rangeSlider](https://github.com/IonDen/ion.rangeSlider) can be updated with the script `updateIonRangeSlider.R`. That script downloads a specific version of ion.rangeSlider and applies our patches in tools/ion.rangeSlider-patches.
 
 After updating and applying patches, `yarn grunt` should be run per the instructions above in order to generate a minified JavaScript file.
 
@@ -144,3 +144,20 @@ To create a new patch:
 1. Run `yarn grunt`
 1. Test your changes
 1. `git add` the new `.patch` and any resulting changes
+
+
+## Updating Font-Awesome
+
+* Edit `updateFontAwesome.R` to use the new version, and then run it. This will download and copy the files to the relevant locations.
+* Update the "font-awesome" htmlDependency in `R/bootstrap.R` to reflect the new version.
+* Update the documentation for the `icon()` function in `R/bootstrap.R` to reflect the new version.
+* Run `devtools::document()`.
+* Commit the changes.
+
+## Updating jQuery
+
+* * Edit `updatejQuery.R` to use the new version, and then run it. This will download and copy the files to the relevant locations.
+* Update the "jquery" htmlDependency in `R/shinyui.R` to reflect the new version.
+* Update the documentation for the `shiny.jquery.version` option in `R/shiny-options.R` to reflect the new version.
+* Run `devtools::document()`.
+* Commit the changes.
