@@ -79,7 +79,7 @@ sliderInput <- function(inputId, label, min, max, value, step = NULL,
                         round = FALSE, ticks = TRUE, animate = FALSE,
                         width = NULL, sep = ",", pre = NULL, post = NULL,
                         timeFormat = NULL, timezone = NULL, dragRange = TRUE) {
-  validate_slider_value(min, max, value, "sliderInput")
+  #validate_slider_value(min, max, value, "sliderInput")
 
   dataType <- getSliderType(min, max, value)
 
