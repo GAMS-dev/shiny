@@ -105,9 +105,7 @@ ReactiveVal <- R6Class(
       invisible(TRUE)
     },
     freeze = function(session = getDefaultReactiveDomain()) {
-      if (is.null(session)) {
-        stop("Can't freeze a reactiveVal without a reactive domain")
-      }
+      checkReactiveDomain(session)
       rLog$freezeReactiveVal(private$reactId, session)
       session$onFlushed(function() {
         self$thaw(session)
@@ -231,17 +229,29 @@ reactiveVal <- function(value = NULL, label = NULL) {
 #' @rdname freezeReactiveValue
 #' @export
 freezeReactiveVal <- function(x) {
-  domain <- getDefaultReactiveDomain()
-  if (is.null(domain)) {
-    stop("freezeReactiveVal() must be called when a default reactive domain is active.")
+  if (getOption("shiny.deprecation.messages", TRUE) && getOption("shiny.deprecation.messages.freeze", TRUE)) {
+    rlang::warn(
+      "freezeReactiveVal() is soft-deprecated, and may be removed in a future version of Shiny. (See https://github.com/rstudio/shiny/issues/3063)",
+      .frequency = "once", .frequency_id = "freezeReactiveVal")
   }
+
+  domain <- getDefaultReactiveDomain()
+  checkReactiveDomain(domain)
+
   if (!inherits(x, "reactiveVal")) {
-    stop("x must be a reactiveVal object")
+    rlang::abort("`x` must be a reactiveVal.")
   }
 
   attr(x, ".impl", exact = TRUE)$freeze(domain)
   invisible()
 }
+
+checkReactiveDomain <- function(x) {
+  if (is.null(x)) {
+    rlang::abort("Can't freeze reactive values without a reactive domain.")
+  }
+}
+
 
 #' @export
 format.reactiveVal <- function(x, ...) {
@@ -357,7 +367,7 @@ ReactiveValues <- R6Class(
       keyValue
     },
 
-    set = function(key, value) {
+    set = function(key, value, force = FALSE) {
       # if key exists
       #   if it is the same value, return
       #
@@ -389,10 +399,8 @@ ReactiveValues <- R6Class(
 
       key_exists <- .values$containsKey(key)
 
-      if (key_exists) {
-        if (.dedupe && identical(.values$get(key), value)) {
-          return(invisible())
-        }
+      if (key_exists && !isTRUE(force) && .dedupe && identical(.values$get(key), value)) {
+        return(invisible())
       }
 
       # set the value for better logging
@@ -469,10 +477,15 @@ ReactiveValues <- R6Class(
 
     # Mark a value as frozen If accessed while frozen, a shiny.silent.error will
     # be thrown.
-    freeze = function(key) {
+    freeze = function(key, invalidate = FALSE) {
       domain <- getDefaultReactiveDomain()
       rLog$freezeReactiveKey(.reactId, key, domain)
       setMeta(key, "frozen", TRUE)
+
+      if (invalidate) {
+        # Force an invalidation
+        self$set(key, NULL, force = TRUE)
+      }
     },
 
     thaw = function(key) {
@@ -555,9 +568,9 @@ ReactiveValues <- R6Class(
 #' @seealso [isolate()] and [is.reactivevalues()].
 #' @export
 reactiveValues <- function(...) {
-  args <- list(...)
+  args <- list2(...)
   if ((length(args) > 0) && (is.null(names(args)) || any(names(args) == "")))
-    stop("All arguments passed to reactiveValues() must be named.")
+    rlang::abort("All arguments passed to reactiveValues() must be named.")
 
   values <- .createReactiveValues(ReactiveValues$new())
 
@@ -568,7 +581,7 @@ reactiveValues <- function(...) {
 
 checkName <- function(x) {
   if (!is.character(x) || length(x) != 1) {
-    stop("Must use single string to index into reactivevalues")
+    rlang::abort("Must use single string to index into reactivevalues.")
   }
 }
 
@@ -610,6 +623,14 @@ is.reactivevalues <- function(x) inherits(x, 'reactivevalues')
 #' @export
 `$.reactivevalues` <- function(x, name) {
   checkName(name)
+
+  if (!hasCurrentContext()) {
+    rlang::abort(c(
+      paste0("Can't access reactive value '", name, "' outside of reactive consumer."),
+      i = "Do you need to wrap inside reactive() or observe()?"
+    ))
+  }
+
   .subset2(x, 'impl')$get(.subset2(x, 'ns')(name))
 }
 
@@ -619,7 +640,7 @@ is.reactivevalues <- function(x) inherits(x, 'reactivevalues')
 #' @export
 `$<-.reactivevalues` <- function(x, name, value) {
   if (.subset2(x, 'readonly')) {
-    stop("Attempted to assign value to a read-only reactivevalues object")
+    rlang::abort(paste0("Can't modify read-only reactive value '", name, "'"))
   }
   checkName(name)
   .subset2(x, 'impl')$set(.subset2(x, 'ns')(name), value)
@@ -631,12 +652,12 @@ is.reactivevalues <- function(x) inherits(x, 'reactivevalues')
 
 #' @export
 `[.reactivevalues` <- function(values, name) {
-  stop("Single-bracket indexing of reactivevalues object is not allowed.")
+  rlang::abort("Can't index reactivevalues with `[`.")
 }
 
 #' @export
 `[<-.reactivevalues` <- function(values, name, value) {
-  stop("Single-bracket indexing of reactivevalues object is not allowed.")
+  rlang::abort("Can't index reactivevalues with `[`.")
 }
 
 #' @export
@@ -652,16 +673,15 @@ names.reactivevalues <- function(x) {
 
 #' @export
 `names<-.reactivevalues` <- function(x, value) {
-  stop("Can't assign names to reactivevalues object")
+  rlang::abort("Can't assign names to reactivevalues.")
 }
 
 #' @export
 as.list.reactivevalues <- function(x, all.names=FALSE, ...) {
-  shinyDeprecated("reactiveValuesToList",
-    msg = paste("'as.list.reactivevalues' is deprecated. ",
-      "Use reactiveValuesToList instead.",
-      "\nPlease see ?reactiveValuesToList for more information.",
-      sep = ""))
+  shinyDeprecated(
+    "0.4.0", "as.list.reactivevalues()", "reactiveValuesToList()",
+    details = "Please see ?reactiveValuesToList for more information."
+  )
 
   reactiveValuesToList(x, all.names)
 }
@@ -727,7 +747,10 @@ str.reactivevalues <- function(object, indent.str = " ", ...) {
 #' thing that happens if `req(FALSE)` is called. The value is thawed
 #' (un-frozen; accessing it will no longer raise an exception) when the current
 #' reactive domain is flushed. In a Shiny application, this occurs after all of
-#' the observers are executed.
+#' the observers are executed. **NOTE:** We are considering deprecating
+#' `freezeReactiveVal`, and `freezeReactiveValue` except when `x` is `input`.
+#' If this affects your app, please let us know by leaving a comment on
+#' [this GitHub issue](https://github.com/rstudio/shiny/issues/3063).
 #'
 #' @param x For `freezeReactiveValue`, a [reactiveValues()]
 #'   object (like `input`); for `freezeReactiveVal`, a
@@ -773,9 +796,7 @@ str.reactivevalues <- function(object, indent.str = " ", ...) {
 #' @export
 freezeReactiveValue <- function(x, name) {
   domain <- getDefaultReactiveDomain()
-  if (is.null(domain)) {
-    stop("freezeReactiveValue() must be called when a default reactive domain is active.")
-  }
+  checkReactiveDomain(domain)
 
   domain$freezeValue(x, name)
   invisible()
@@ -807,9 +828,10 @@ Observable <- R6Class(
                           domain = getDefaultReactiveDomain(),
                           ..stacktraceon = TRUE) {
       if (length(formals(func)) > 0)
-        stop("Can't make a reactive expression from a function that takes one ",
-             "or more parameters; only functions without parameters can be ",
-             "reactive.")
+        rlang::abort(c(
+          "Can't make a reactive expression from a function that takes arguments.",
+          "Only functions without parameters can become reactive expressions."
+        ))
 
       # This is to make sure that the function labels that show in the profiler
       # and in stack traces doesn't contain whitespace. See
@@ -853,8 +875,7 @@ Observable <- R6Class(
         invisible(.value)
     },
     format = function() {
-      label <- sprintf('reactive(%s)', paste(deparse(body(.origFunc)), collapse='\n'))
-      strsplit(label, "\n")[[1]]
+      simpleExprToFunction(fn_body(.origFunc), "reactive")
     },
     .updateValue = function() {
       ctx <- Context$new(.domain, .label, type = 'observable',
@@ -923,53 +944,75 @@ Observable <- R6Class(
 #' See the [Shiny tutorial](https://shiny.rstudio.com/tutorial/) for
 #' more information about reactive expressions.
 #'
-#' @param x For `reactive`, an expression (quoted or unquoted). For
-#'   `is.reactive`, an object to test.
-#' @param env The parent environment for the reactive expression. By default,
-#'   this is the calling environment, the same as when defining an ordinary
-#'   non-reactive expression.
-#' @param quoted Is the expression quoted? By default, this is `FALSE`.
-#'   This is useful when you want to use an expression that is stored in a
-#'   variable; to do so, it must be quoted with `quote()`.
+#' @param x For `is.reactive()`, an object to test. For `reactive()`, an expression. When passing in a [`quo()`]sure with `reactive()`, remember to use [`rlang::inject()`] to distinguish that you are passing in the content of your quosure, not the expression of the quosure.
+#' @template param-env
+#' @templateVar x x
+#' @templateVar env env
+#' @templateVar quoted quoted
+#' @template param-quoted
+#' @templateVar x x
+#' @templateVar quoted quoted
+
 #' @param label A label for the reactive expression, useful for debugging.
 #' @param domain See [domains].
 #' @param ..stacktraceon Advanced use only. For stack manipulation purposes; see
 #'   [stacktrace()].
+#' @param ... Not used.
 #' @return a function, wrapped in a S3 class "reactive"
 #'
 #' @examples
+#' library(rlang)
 #' values <- reactiveValues(A=1)
 #'
 #' reactiveB <- reactive({
 #'   values$A + 1
 #' })
-#'
-#' # Can use quoted expressions
-#' reactiveC <- reactive(quote({ values$A + 2 }), quoted = TRUE)
-#'
-#' # To store expressions for later conversion to reactive, use quote()
-#' expr_q <- quote({ values$A + 3 })
-#' reactiveD <- reactive(expr_q, quoted = TRUE)
-#'
 #' # View the values from the R console with isolate()
 #' isolate(reactiveB())
+#' # 2
+#'
+#' # To store expressions for later conversion to reactive, use quote()
+#' myquo <- rlang::quo(values$A + 2)
+#' # Unexpected value! Sending a quosure directly will not work as expected.
+#' reactiveC <- reactive(myquo)
+#' # We'd hope for `3`, but instead we get the quosure that was supplied.
 #' isolate(reactiveC())
+#'
+#' # Instead, the quosure should be `rlang::inject()`ed
+#' reactiveD <- rlang::inject(reactive(!!myquo))
 #' isolate(reactiveD())
+#' # 3
+#'
+#' # (Legacy) Can use quoted expressions
+#' expr <- quote({ values$A + 3 })
+#' reactiveE <- reactive(expr, quoted = TRUE)
+#' isolate(reactiveE())
+#' # 4
+#'
 #' @export
-reactive <- function(x, env = parent.frame(), quoted = FALSE, label = NULL,
-                     domain = getDefaultReactiveDomain(),
-                     ..stacktraceon = TRUE) {
-  fun <- exprToFunction(x, env, quoted)
+reactive <- function(
+  x,
+  env = parent.frame(),
+  quoted = FALSE,
+  ...,
+  label = NULL,
+  domain = getDefaultReactiveDomain(),
+  ..stacktraceon = TRUE
+) {
+  check_dots_empty()
+
+  func <- installExprFunction(x, "func", env, quoted, wrappedWithLabel = FALSE)
   # Attach a label and a reference to the original user source for debugging
-  srcref <- attr(substitute(x), "srcref", exact = TRUE)
-  if (is.null(label)) {
-    label <- rexprSrcrefToLabel(srcref[[1]],
-      sprintf('reactive(%s)', paste(deparse(body(fun)), collapse='\n')))
-  }
-  if (length(srcref) >= 2) attr(label, "srcref") <- srcref[[2]]
-  attr(label, "srcfile") <- srcFileOfRef(srcref[[1]])
-  o <- Observable$new(fun, label, domain, ..stacktraceon = ..stacktraceon)
-  structure(o$getValue, observable = o, class = c("reactiveExpr", "reactive", "function"))
+  userExpr <- fn_body(func)
+  label <- exprToLabel(userExpr, "reactive", label)
+
+  o <- Observable$new(func, label, domain, ..stacktraceon = ..stacktraceon)
+  structure(
+    o$getValue,
+    observable = o,
+    cacheHint = list(userExpr = zap_srcref(userExpr)),
+    class = c("reactiveExpr", "reactive", "function")
+  )
 }
 
 # Given the srcref to a reactive expression, attempts to figure out what the
@@ -1038,7 +1081,15 @@ execCount <- function(x) {
   else if (inherits(x, 'Observer'))
     return(x$.execCount)
   else
-    stop('Unexpected argument to execCount')
+    rlang::abort("Unexpected argument to execCount().")
+}
+
+# Internal utility functions for extracting things out of reactives.
+reactive_get_value_func <- function(x) {
+  attr(x, "observable", exact = TRUE)$.origFunc
+}
+reactive_get_domain <- function(x) {
+  attr(x, "observable", exact = TRUE)$.domain
 }
 
 # Observer ------------------------------------------------------------------
@@ -1070,8 +1121,10 @@ Observer <- R6Class(
                           domain = getDefaultReactiveDomain(),
                           autoDestroy = TRUE, ..stacktraceon = TRUE) {
       if (length(formals(observerFunc)) > 0)
-        stop("Can't make an observer from a function that takes parameters; ",
-             "only functions without parameters can be reactive.")
+        rlang::abort(c(
+          "Can't make an observer from a function that takes arguments.",
+          "Only functions without arguments can become observers."
+        ))
       if (grepl("\\s", label, perl = TRUE)) {
         funcLabel <- "<observer>"
       } else {
@@ -1150,7 +1203,7 @@ Observer <- R6Class(
             # validation = function(e) NULL,
             # shiny.output.cancel = function(e) NULL
 
-            if (inherits(e, "shiny.silent.error")) {
+            if (cnd_inherits(e, "shiny.silent.error")) {
               return()
             }
 
@@ -1282,12 +1335,7 @@ Observer <- R6Class(
 #'
 #' @param x An expression (quoted or unquoted). Any return value will be
 #'   ignored.
-#' @param env The parent environment for the reactive expression. By default,
-#'   this is the calling environment, the same as when defining an ordinary
-#'   non-reactive expression.
-#' @param quoted Is the expression quoted? By default, this is `FALSE`.
-#'   This is useful when you want to use an expression that is stored in a
-#'   variable; to do so, it must be quoted with `quote()`.
+#' @inheritParams reactive
 #' @param label A label for the observer, useful for debugging.
 #' @param suspended If `TRUE`, start the observer in a suspended state. If
 #'   `FALSE` (the default), start in a non-suspended state.
@@ -1301,6 +1349,8 @@ Observer <- R6Class(
 #'   automatically destroyed when its domain (if any) ends.
 #' @param ..stacktraceon Advanced use only. For stack manipulation purposes; see
 #'   [stacktrace()].
+#' @param ... Not used.
+#'
 #' @return An observer reference class object. This object has the following
 #'   methods:
 #'   \describe{
@@ -1344,29 +1394,43 @@ Observer <- R6Class(
 #'   print(values$A + 1)
 #' })
 #'
-#' # Can use quoted expressions
-#' obsC <- observe(quote({ print(values$A + 2) }), quoted = TRUE)
+#' # To store expressions for later conversion to observe, use rlang::quo()
+#' myquo <- rlang::quo({ print(values$A + 3) })
+#' obsC <- rlang::inject(observe(!!myquo))
 #'
-#' # To store expressions for later conversion to observe, use quote()
-#' expr_q <- quote({ print(values$A + 3) })
-#' obsD <- observe(expr_q, quoted = TRUE)
+#' # (Legacy) Can use quoted expressions
+#' obsD <- observe(quote({ print(values$A + 2) }), quoted = TRUE)
 #'
 #' # In a normal Shiny app, the web client will trigger flush events. If you
 #' # are at the console, you can force a flush with flushReact()
 #' shiny:::flushReact()
 #' @export
-observe <- function(x, env=parent.frame(), quoted=FALSE, label=NULL,
-                    suspended=FALSE, priority=0,
-                    domain=getDefaultReactiveDomain(), autoDestroy = TRUE,
-                    ..stacktraceon = TRUE) {
+observe <- function(
+  x,
+  env = parent.frame(),
+  quoted = FALSE,
+  ...,
+  label = NULL,
+  suspended = FALSE,
+  priority = 0,
+  domain = getDefaultReactiveDomain(),
+  autoDestroy = TRUE,
+  ..stacktraceon = TRUE)
+{
+  check_dots_empty()
 
-  fun <- exprToFunction(x, env, quoted)
-  if (is.null(label))
-    label <- sprintf('observe(%s)', paste(deparse(body(fun)), collapse='\n'))
+  func <- installExprFunction(x, "func", env, quoted)
+  label <- funcToLabel(func, "observe", label)
 
-  o <- Observer$new(fun, label=label, suspended=suspended, priority=priority,
-                    domain=domain, autoDestroy=autoDestroy,
-                    ..stacktraceon=..stacktraceon)
+  o <- Observer$new(
+    func,
+    label = label,
+    suspended = suspended,
+    priority = priority,
+    domain = domain,
+    autoDestroy = autoDestroy,
+    ..stacktraceon = ..stacktraceon
+  )
   invisible(o)
 }
 
@@ -1377,35 +1441,34 @@ observe <- function(x, env=parent.frame(), quoted=FALSE, label=NULL,
 #' already exist; if so, its value will be used as the initial value of the
 #' reactive variable (or `NULL` if the variable did not exist).
 #'
-#' @param symbol A character string indicating the name of the variable that
-#'   should be made reactive
-#' @param env The environment that will contain the reactive variable
-#'
+#' @param symbol Name of variable to make reactive, as a string.
+#' @param env Environment in which to create binding. Expert use only.
 #' @return None.
-#'
+#' @keywords internal
 #' @examples
-#' \dontrun{
+#' reactiveConsole(TRUE)
+#'
 #' a <- 10
 #' makeReactiveBinding("a")
+#'
 #' b <- reactive(a * -1)
 #' observe(print(b()))
+#'
 #' a <- 20
-#' }
+#' a <- 30
+#'
+#' reactiveConsole(FALSE)
 #' @export
 makeReactiveBinding <- function(symbol, env = parent.frame()) {
   if (exists(symbol, envir = env, inherits = FALSE)) {
     initialValue <- env[[symbol]]
     rm(list = symbol, envir = env, inherits = FALSE)
-  }
-  else
+  } else {
     initialValue <- NULL
-  values <- reactiveValues(value = initialValue)
-  makeActiveBinding(symbol, env=env, fun=function(v) {
-    if (missing(v))
-      values$value
-    else
-      values$value <- v
-  })
+  }
+
+  val <- reactiveVal(initialValue, label = symbol)
+  makeActiveBinding(symbol, val, env = env)
 
   invisible()
 }
@@ -1440,6 +1503,29 @@ setAutoflush <- local({
     invisible()
   }
 })
+
+
+#' Activate reactivity in the console
+#'
+#' This is an experimental feature that allows you to enable reactivity
+#' at the console, for the purposes of experimentation and learning.
+#'
+#' @keywords internal
+#' @param enabled Turn console reactivity on or off?
+#' @export
+#' @examples
+#' reactiveConsole(TRUE)
+#' x <- reactiveVal(10)
+#' y <- observe({
+#'   message("The value of x is ", x())
+#' })
+#' x(20)
+#' x(30)
+#' reactiveConsole(FALSE)
+reactiveConsole <- function(enabled) {
+  options(shiny.suppressMissingContextError = enabled)
+  setAutoflush(enabled)
+}
 
 # ---------------------------------------------------------------------------
 
@@ -1737,6 +1823,7 @@ reactivePoll <- function(intervalMillis, session, checkFunc, valueFunc) {
   rv <- reactiveValues(cookie = isolate(checkFunc()))
 
   re_finalized <- FALSE
+  env <- environment()
 
   o <- observe({
     # When no one holds a reference to the reactive returned from
@@ -1744,7 +1831,7 @@ reactivePoll <- function(intervalMillis, session, checkFunc, valueFunc) {
     # firing and hold onto resources.
     if (re_finalized) {
       o$destroy()
-      rm(o, envir = parent.env(environment()))
+      rm(o, envir = env)
       return()
     }
 
@@ -1829,7 +1916,7 @@ reactivePoll <- function(intervalMillis, session, checkFunc, valueFunc) {
 #' @export
 reactiveFileReader <- function(intervalMillis, session, filePath, readFunc, ...) {
   filePath <- coerceToFunc(filePath)
-  extraArgs <- list(...)
+  extraArgs <- list2(...)
 
   reactivePoll(
     intervalMillis, session,
@@ -1948,7 +2035,11 @@ maskReactiveContext <- function(expr) {
 
 #' Event handler
 #'
-#' Respond to "event-like" reactive inputs, values, and expressions.
+#' Respond to "event-like" reactive inputs, values, and expressions. As of Shiny
+#' 1.6.0, we recommend using [bindEvent()] instead of `eventReactive()` and
+#' `observeEvent()`. This is because `bindEvent()` can be composed with
+#' [bindCache()], and because it can also be used with `render` functions (like
+#' [renderText()] and [renderPlot()]).
 #'
 #' Shiny's reactive programming framework is primarily designed for calculated
 #' values (reactive expressions) and side-effect-causing actions (observers)
@@ -1970,13 +2061,17 @@ maskReactiveContext <- function(expr) {
 #' response to an event. (Note that "recalculate a value" does not generally
 #' count as performing an action--see `eventReactive` for that.) The first
 #' argument is the event you want to respond to, and the second argument is a
-#' function that should be called whenever the event occurs.
+#' function that should be called whenever the event occurs. Note that
+#' `observeEvent()` is equivalent to using `observe() %>% bindEvent()` and as of
+#' Shiny 1.6.0, we recommend the latter.
 #'
 #' Use `eventReactive` to create a *calculated value* that only
 #' updates in response to an event. This is just like a normal
 #' [reactive expression][reactive] except it ignores all the usual
 #' invalidations that come from its reactive dependencies; it only invalidates
-#' in response to the given event.
+#' in response to the given event. Note that
+#' `eventReactive()` is equivalent to using `reactive() %>% bindEvent()` and as of
+#' Shiny 1.6.0, we recommend the latter.
 #'
 #' @section ignoreNULL and ignoreInit:
 #'
@@ -2010,6 +2105,7 @@ maskReactiveContext <- function(expr) {
 #' Even though `ignoreNULL` and `ignoreInit` can be used for similar
 #' purposes they are independent from one another. Here's the result of combining
 #' these:
+
 #'
 #' \describe{
 #'   \item{`ignoreNULL = TRUE` and `ignoreInit = FALSE`}{
@@ -2049,23 +2145,30 @@ maskReactiveContext <- function(expr) {
 #' @param valueExpr The expression that produces the return value of the
 #'   `eventReactive`. It will be executed within an [isolate()]
 #'   scope.
-#' @param event.env The parent environment for `eventExpr`. By default,
-#'   this is the calling environment.
-#' @param event.quoted Is the `eventExpr` expression quoted? By default,
-#'   this is `FALSE`. This is useful when you want to use an expression
-#'   that is stored in a variable; to do so, it must be quoted with
-#'   `quote()`.
-#' @param handler.env The parent environment for `handlerExpr`. By default,
-#'   this is the calling environment.
-#' @param handler.quoted Is the `handlerExpr` expression quoted? By
-#'   default, this is `FALSE`. This is useful when you want to use an
-#'   expression that is stored in a variable; to do so, it must be quoted with
-#'   `quote()`.
-#' @param value.env The parent environment for `valueExpr`. By default,
-#'   this is the calling environment.
-#' @param value.quoted Is the `valueExpr` expression quoted? By default,
-#'   this is `FALSE`. This is useful when you want to use an expression
-#'   that is stored in a variable; to do so, it must be quoted with `quote()`.
+#' @param event.env The parent environment for the reactive expression. By default,
+#'   this is the calling environment, the same as when defining an ordinary
+#'   non-reactive expression. If `eventExpr` is a quosure and `event.quoted` is `TRUE`,
+#'   then `event.env` is ignored.
+#' @param event.quoted If it is `TRUE`, then the [`quote()`]ed value of `eventExpr`
+#'   will be used when `eventExpr` is evaluated. If `eventExpr` is a quosure and you
+#'   would like to use its expression as a value for `eventExpr`, then you must set
+#'  `event.quoted` to `TRUE`.
+#' @param handler.env The parent environment for the reactive expression. By default,
+#'   this is the calling environment, the same as when defining an ordinary
+#'   non-reactive expression. If `handlerExpr` is a quosure and `handler.quoted` is `TRUE`,
+#'   then `handler.env` is ignored.
+#' @param handler.quoted If it is `TRUE`, then the [`quote()`]ed value of `handlerExpr`
+#'   will be used when `handlerExpr` is evaluated. If `handlerExpr` is a quosure and you
+#'   would like to use its expression as a value for `handlerExpr`, then you must set
+#'  `handler.quoted` to `TRUE`.
+#' @param value.env The parent environment for the reactive expression. By default,
+#'   this is the calling environment, the same as when defining an ordinary
+#'   non-reactive expression. If `valueExpr` is a quosure and `value.quoted` is `TRUE`,
+#'   then `value.env` is ignored.
+#' @param value.quoted If it is `TRUE`, then the [`quote()`]ed value of `valueExpr`
+#'   will be used when `valueExpr` is evaluated. If `valueExpr` is a quosure and you
+#'   would like to use its expression as a value for `valueExpr`, then you must set
+#'  `value.quoted` to `TRUE`.
 #' @param label A label for the observer or reactive, useful for debugging.
 #' @param suspended If `TRUE`, start the observer in a suspended state. If
 #'   `FALSE` (the default), start in a non-suspended state.
@@ -2087,6 +2190,7 @@ maskReactiveContext <- function(expr) {
 #'   after the first time that the code in `handlerExpr` is run. This
 #'   pattern is useful when you want to subscribe to a event that should only
 #'   happen once.
+#' @param ... Currently not used.
 #'
 #' @return `observeEvent` returns an observer reference class object (see
 #'   [observe()]). `eventReactive` returns a reactive expression
@@ -2095,7 +2199,7 @@ maskReactiveContext <- function(expr) {
 #' @seealso [actionButton()]
 #'
 #' @examples
-#' ## Only run this example in interactive R sessions
+#' ## Only run examples in interactive R sessions
 #' if (interactive()) {
 #'
 #'   ## App 1: Sample usage
@@ -2114,6 +2218,12 @@ maskReactiveContext <- function(expr) {
 #'       observeEvent(input$button, {
 #'         cat("Showing", input$x, "rows\n")
 #'       })
+#'       # The observeEvent() above is equivalent to:
+#'       # observe({
+#'       #    cat("Showing", input$x, "rows\n")
+#'       #   }) %>%
+#'       #   bindEvent(input$button)
+#'
 #'       # Take a reactive dependency on input$button, but
 #'       # not on any of the stuff inside the function
 #'       df <- eventReactive(input$button, {
@@ -2133,6 +2243,12 @@ maskReactiveContext <- function(expr) {
 #'         print(paste("This will only be printed once; all",
 #'               "subsequent button clicks won't do anything"))
 #'       }, once = TRUE)
+#'       # The observeEvent() above is equivalent to:
+#'       # observe({
+#'       #   print(paste("This will only be printed once; all",
+#'       #         "subsequent button clicks won't do anything"))
+#'       #   }) %>%
+#'       #   bindEvent(input$go, once = TRUE)
 #'     }
 #'   )
 #'
@@ -2159,42 +2275,36 @@ maskReactiveContext <- function(expr) {
 observeEvent <- function(eventExpr, handlerExpr,
   event.env = parent.frame(), event.quoted = FALSE,
   handler.env = parent.frame(), handler.quoted = FALSE,
+  ...,
   label = NULL, suspended = FALSE, priority = 0,
   domain = getDefaultReactiveDomain(), autoDestroy = TRUE,
-  ignoreNULL = TRUE, ignoreInit = FALSE, once = FALSE) {
+  ignoreNULL = TRUE, ignoreInit = FALSE, once = FALSE)
+{
+  check_dots_empty()
 
-  eventFunc <- exprToFunction(eventExpr, event.env, event.quoted)
-  if (is.null(label))
-    label <- sprintf('observeEvent(%s)', paste(deparse(body(eventFunc)), collapse='\n'))
-  eventFunc <- wrapFunctionLabel(eventFunc, "observeEventExpr", ..stacktraceon = TRUE)
+  eventQ <- exprToQuo(eventExpr, event.env, event.quoted)
+  handlerQ <- exprToQuo(handlerExpr, handler.env, handler.quoted)
 
-  handlerFunc <- exprToFunction(handlerExpr, handler.env, handler.quoted)
-  handlerFunc <- wrapFunctionLabel(handlerFunc, "observeEventHandler", ..stacktraceon = TRUE)
+  label <- quoToLabel(eventQ, "observeEvent", label)
 
-  initialized <- FALSE
+  handler <- inject(observe(
+    !!handlerQ,
+    label = label,
+    suspended = suspended,
+    priority = priority,
+    domain = domain,
+    autoDestroy = TRUE,
+    ..stacktraceon = FALSE # TODO: Does this go in the bindEvent?
+  ))
 
-  o <- observe({
-    hybrid_chain(
-      {eventFunc()},
-      function(value) {
-        if (ignoreInit && !initialized) {
-          initialized <<- TRUE
-          return()
-        }
-
-        if (ignoreNULL && isNullEvent(value)) {
-          return()
-        }
-
-        if (once) {
-          on.exit(o$destroy())
-        }
-
-        isolate(handlerFunc())
-      }
-    )
-  }, label = label, suspended = suspended, priority = priority, domain = domain,
-  autoDestroy = TRUE, ..stacktraceon = FALSE)
+  o <- inject(bindEvent(
+    ignoreNULL = ignoreNULL,
+    ignoreInit = ignoreInit,
+    once = once,
+    label = label,
+    !!eventQ,
+    x = handler
+  ))
 
   invisible(o)
 }
@@ -2204,34 +2314,24 @@ observeEvent <- function(eventExpr, handlerExpr,
 eventReactive <- function(eventExpr, valueExpr,
   event.env = parent.frame(), event.quoted = FALSE,
   value.env = parent.frame(), value.quoted = FALSE,
+  ...,
   label = NULL, domain = getDefaultReactiveDomain(),
-  ignoreNULL = TRUE, ignoreInit = FALSE) {
+  ignoreNULL = TRUE, ignoreInit = FALSE)
+{
+  check_dots_empty()
 
-  eventFunc <- exprToFunction(eventExpr, event.env, event.quoted)
-  if (is.null(label))
-    label <- sprintf('eventReactive(%s)', paste(deparse(body(eventFunc)), collapse='\n'))
-  eventFunc <- wrapFunctionLabel(eventFunc, "eventReactiveExpr", ..stacktraceon = TRUE)
+  eventQ <- exprToQuo(eventExpr, event.env, event.quoted)
+  valueQ <- exprToQuo(valueExpr, value.env, value.quoted)
 
-  handlerFunc <- exprToFunction(valueExpr, value.env, value.quoted)
-  handlerFunc <- wrapFunctionLabel(handlerFunc, "eventReactiveHandler", ..stacktraceon = TRUE)
+  label <- quoToLabel(eventQ, "eventReactive", label)
 
-  initialized <- FALSE
-
-  invisible(reactive({
-    hybrid_chain(
-      eventFunc(),
-      function(value) {
-        if (ignoreInit && !initialized) {
-          initialized <<- TRUE
-          req(FALSE)
-        }
-
-        req(!ignoreNULL || !isNullEvent(value))
-
-        isolate(handlerFunc())
-      }
-    )
-  }, label = label, domain = domain, ..stacktraceon = FALSE))
+  invisible(inject(bindEvent(
+    ignoreNULL = ignoreNULL,
+    ignoreInit = ignoreInit,
+    label = label,
+    !!eventQ,
+    x = reactive(!!valueQ, domain = domain, label = label)
+  )))
 }
 
 isNullEvent <- function(value) {
@@ -2391,7 +2491,7 @@ debounce <- function(r, millis, priority = 100, domain = getDefaultReactiveDomai
     now <- getDomainTimeMs(domain)
     if (now >= v$when) {
       # Mod by 999999999 to get predictable overflow behavior
-      v$trigger <- isolate(v$trigger %OR% 0) %% 999999999 + 1
+      v$trigger <- isolate(v$trigger %||% 0) %% 999999999 + 1
       v$when <- NULL
     } else {
       invalidateLater(v$when - now)

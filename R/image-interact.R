@@ -92,11 +92,21 @@ brushedPoints <- function(df, brush, xvar = NULL, yvar = NULL,
   use_x <- grepl("x", brush$direction)
   use_y <- grepl("y", brush$direction)
 
+  # We transitioned to using %||% in Shiny 1.6.0. Previously, these vars could
+  # be NA, because the old %OR% operator recognized NA. These warnings and
+  # the NULL replacement are here just to ease the transition in case anyone is
+  # using NA. We can remove these checks in a future version of Shiny.
+  # https://github.com/rstudio/shiny/pull/3172
+  if (is_na(xvar))      { xvar      <- NULL; warning("xvar should be NULL, not NA.") }
+  if (is_na(yvar))      { yvar      <- NULL; warning("yvar should be NULL, not NA.") }
+  if (is_na(panelvar1)) { panelvar1 <- NULL; warning("panelvar1 should be NULL, not NA.") }
+  if (is_na(panelvar2)) { panelvar2 <- NULL; warning("panelvar2 should be NULL, not NA.") }
+
   # Try to extract vars from brush object
-  xvar      <- xvar      %OR% brush$mapping$x
-  yvar      <- yvar      %OR% brush$mapping$y
-  panelvar1 <- panelvar1 %OR% brush$mapping$panelvar1
-  panelvar2 <- panelvar2 %OR% brush$mapping$panelvar2
+  xvar      <- xvar      %||% brush$mapping$x
+  yvar      <- yvar      %||% brush$mapping$y
+  panelvar1 <- panelvar1 %||% brush$mapping$panelvar1
+  panelvar2 <- panelvar2 %||% brush$mapping$panelvar2
 
   # Filter out x and y values
   keep_rows <- rep(TRUE, nrow(df))
@@ -230,11 +240,21 @@ nearPoints <- function(df, coordinfo, xvar = NULL, yvar = NULL,
     stop("nearPoints requires a click/hover/double-click object with x and y values.")
   }
 
+  # We transitioned to using %||% in Shiny 1.6.0. Previously, these vars could
+  # be NA, because the old %OR% operator recognized NA. These warnings and
+  # the NULL replacement are here just to ease the transition in case anyone is
+  # using NA. We can remove these checks in a future version of Shiny.
+  # https://github.com/rstudio/shiny/pull/3172
+  if (is_na(xvar))      { xvar      <- NULL; warning("xvar should be NULL, not NA.") }
+  if (is_na(yvar))      { yvar      <- NULL; warning("yvar should be NULL, not NA.") }
+  if (is_na(panelvar1)) { panelvar1 <- NULL; warning("panelvar1 should be NULL, not NA.") }
+  if (is_na(panelvar2)) { panelvar2 <- NULL; warning("panelvar2 should be NULL, not NA.") }
+
   # Try to extract vars from coordinfo object
-  xvar      <- xvar      %OR% coordinfo$mapping$x
-  yvar      <- yvar      %OR% coordinfo$mapping$y
-  panelvar1 <- panelvar1 %OR% coordinfo$mapping$panelvar1
-  panelvar2 <- panelvar2 %OR% coordinfo$mapping$panelvar2
+  xvar      <- xvar      %||% coordinfo$mapping$x
+  yvar      <- yvar      %||% coordinfo$mapping$y
+  panelvar1 <- panelvar1 %||% coordinfo$mapping$panelvar1
+  panelvar2 <- panelvar2 %||% coordinfo$mapping$panelvar2
 
   if (is.null(xvar))
     stop("nearPoints: not able to automatically infer `xvar` from coordinfo")
@@ -247,6 +267,7 @@ nearPoints <- function(df, coordinfo, xvar = NULL, yvar = NULL,
     stop("nearPoints: `yvar` ('", yvar ,"')  not in names of input")
 
   # Extract data values from the data frame
+  coordinfo <- fortifyDiscreteLimits(coordinfo)
   x <- asNumber(df[[xvar]], coordinfo$domain$discrete_limits$x)
   y <- asNumber(df[[yvar]], coordinfo$domain$discrete_limits$y)
 
@@ -372,6 +393,7 @@ nearPoints <- function(df, coordinfo, xvar = NULL, yvar = NULL,
 # an input brush
 within_brush <- function(vals, brush, var = "x") {
   var <- match.arg(var, c("x", "y"))
+  brush <- fortifyDiscreteLimits(brush)
   vals <- asNumber(vals, brush$domain$discrete_limits[[var]])
   # It's possible for a non-missing data values to not
   # map to the axis limits, for example:
@@ -394,11 +416,43 @@ asNumber <- function(x, levels = NULL) {
   as.numeric(x)
 }
 
+# Ensure the discrete limits/levels of a coordmap received
+# from the client matches the data structure sent the client.
+#
+# When we construct the coordmap (in getGgplotCoordmap()),
+# we save a character vector which may contain missing values
+# (e.g., c("a", "b", NA)). When that same character is received
+# from the client, it runs through decodeMessage() which sets
+# simplifyVector=FALSE, which means NA are replaced by NULL
+# (because jsonlite::fromJSON('["a", "b", null]') -> list("a", "b", NULL))
+#
+# Thankfully, it doesn't seem like it's meaningful for limits to
+# contains a NULL in the 1st place, so we simply treat NULL like NA.
+# For more context, https://github.com/rstudio/shiny/issues/2666
+fortifyDiscreteLimits <- function(coord) {
+  # Note that discrete_limits$x/y are populated iff
+  # x/y are discrete mappings
+  coord$domain$discrete_limits <- lapply(
+    coord$domain$discrete_limits,
+    function(var) {
+      # if there is an 'explicit' NULL, then the limits are NA
+      if (is.null(var)) return(NA)
+      vapply(var, function(x) {
+        if (is.null(x) || isTRUE(is.na(x))) NA_character_ else x
+      }, character(1))
+    }
+  )
+  coord
+}
+
+
+
 # Given a panelvar value and a vector x, return logical vector indicating which
 # items match the panelvar value. Because the panelvar value is always a
 # string but the vector could be numeric, it might be necessary to coerce the
 # panelvar to a number before comparing to the vector.
 panelMatch <- function(search_value, x) {
+  if (is.null(search_value)) return(is.na(x))
   if (is.numeric(x)) search_value <- as.numeric(search_value)
   x == search_value
 }

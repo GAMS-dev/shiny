@@ -4,7 +4,14 @@
 \alias{fillPage}
 \title{Create a page that fills the window}
 \usage{
-fillPage(..., padding = 0, title = NULL, bootstrap = TRUE, theme = NULL)
+fillPage(
+  ...,
+  padding = 0,
+  title = NULL,
+  bootstrap = TRUE,
+  theme = NULL,
+  lang = NULL
+)
 }
 \arguments{
 \item{...}{Elements to include within the page.}
@@ -23,7 +30,18 @@ shown in the document).}
 
 \item{bootstrap}{If \code{TRUE}, load the Bootstrap CSS library.}
 
-\item{theme}{URL to alternative Bootstrap stylesheet.}
+\item{theme}{One of the following:
+\itemize{
+\item \code{NULL} (the default), which implies a "stock" build of Bootstrap 3.
+\item A \code{\link[bslib:bs_theme]{bslib::bs_theme()}} object. This can be used to replace a stock
+build of Bootstrap 3 with a customized version of Bootstrap 3 or higher.
+\item A character string pointing to an alternative Bootstrap stylesheet
+(normally a css file within the www directory, e.g. \code{www/bootstrap.css}).
+}}
+
+\item{lang}{ISO 639-1 language code for the HTML page, such as "en" or "ko".
+This will be used as the lang in the \code{<html>} tag, as in \code{<html lang="en">}.
+The default (NULL) results in an empty string.}
 }
 \description{
 \code{fillPage} creates a page whose height and width always fill the

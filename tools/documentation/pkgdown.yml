@@ -52,7 +52,6 @@ reference:
       - textInput
       - textAreaInput
       - passwordInput
-      - modalButton
       - updateActionButton
       - updateCheckboxGroupInput
       - updateCheckboxInput
@@ -75,7 +74,6 @@ reference:
       - htmlOutput
       - plotOutput
       - outputOptions
-      - tableOutput
       - textOutput
       - downloadButton
       - Progress
@@ -91,7 +89,9 @@ reference:
       - HTML
       - include
       - singleton
-      - tag
+      - tagList
+      - tagAppendAttributes
+      - tagAppendChild
       - validateCssUnit
       - withTags
       - htmlTemplate
@@ -104,7 +104,6 @@ reference:
     contents:
       - renderPlot
       - renderCachedPlot
-      - renderText
       - renderPrint
       - renderDataTable
       - renderImage
@@ -120,23 +119,19 @@ reference:
       - observeEvent
       - reactiveVal
       - reactiveValues
+      - bindCache
+      - bindEvent
       - reactiveValuesToList
       - is.reactivevalues
       - isolate
       - invalidateLater
       - debounce
       - reactlog
-      - makeReactiveBinding
       - reactiveFileReader
       - reactivePoll
       - reactiveTimer
       - domains
       - freezeReactiveValue
-  - title: Boilerplate
-    desc: Functions that are required boilerplate in ui.R and server.R.
-    contents:
-      - shinyUI
-      - shinyServer
   - title: Running
     desc: Functions that are used to run or stop Shiny applications.
     contents:
@@ -168,8 +163,10 @@ reference:
   - title: Utility functions
     desc: Miscellaneous utilities that may be useful to advanced users or when extending Shiny.
     contents:
+      - devmode
       - shinyAppTemplate
       - req
+      - isTruthy
       - validate
       - session
       - shinyOptions
@@ -177,8 +174,6 @@ reference:
       - onFlush
       - restoreInput
       - applyInputHandlers
-      - exprToFunction
-      - installExprFunction
       - parseQueryString
       - getCurrentOutputInfo
       - plotPNG
@@ -188,13 +183,10 @@ reference:
       - snapshotExclude
       - snapshotPreprocessInput
       - snapshotPreprocessOutput
-      - markOutputAttrs
       - repeatable
-      - shinyDeprecated
       - serverInfo
       - onStop
-      - diskCache
-      - memoryCache
+      - httpResponse
       - key_missing
   - title: Plot interaction
     desc: Functions related to interactive plots
@@ -202,8 +194,6 @@ reference:
       - brushedPoints
       - brushOpts
       - clickOpts
-      - dblclickOpts
-      - hoverOpts
   - title: Modules
     desc: Functions for modularizing Shiny apps
     contents:
@@ -221,3 +211,10 @@ reference:
       - runTests
       - testServer
       - MockShinySession
+  - title: Superseded
+    desc: Functions that have been `r lifecycle::badge("superseded")`
+    contents:
+      - markRenderFunction
+      - shinyUI
+      - shinyServer
+      - exprToFunction
