@@ -477,8 +477,6 @@ shinyAppDir_appR <- function(fileName, appDir, options=list())
     }
   }
 
-  appObjOptions <- appObj()$options
-
   structure(
     list(
       # fallbackWWWDir is _not_ listed in staticPaths, because it needs to
@@ -497,7 +495,7 @@ shinyAppDir_appR <- function(fileName, appDir, options=list())
       serverFuncSource = dynServerFuncSource,
       onStart = onStart,
       onStop = onStop,
-      options = joinOptions(appObjOptions, options)
+      options = options
     ),
     class = "shiny.appobj"
   )
