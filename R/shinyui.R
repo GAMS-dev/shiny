@@ -14,7 +14,11 @@ NULL
 #' # now we can just write "static" content without withMathJax()
 #' div("more math here $$\\sqrt{2}$$")
 withMathJax <- function(...) {
-  path <- 'https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML'
+  path <- paste0(
+    getOption("shiny.mathjax.url", "https://mathjax.rstudio.com/latest/MathJax.js"),
+    "?",
+    getOption("shiny.mathjax.config", "config=TeX-AMS-MML_HTMLorMML")
+  )
   tagList(
     tags$head(
       singleton(tags$script(src = path, type = 'text/javascript'))
@@ -144,7 +148,7 @@ shinyDependencyCSS <- function(theme) {
 
 #' Create a Shiny UI handler
 #'
-#' @description \lifecycle{superseded}
+#' @description `r lifecycle::badge("superseded")`
 #'
 #' @description Historically this function was used in ui.R files to register a user
 #' interface with Shiny. It is no longer required as of Shiny 0.10; simply
