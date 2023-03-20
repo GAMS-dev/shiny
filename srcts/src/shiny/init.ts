@@ -461,7 +461,10 @@ function initShiny(windowShiny: Shiny): void {
   });
 
   // Send initial screen width
-  initialValues[".clientdata_screenwidth"] = Math.max(window.screen.width, window.innerWidth);
+  initialValues[".clientdata_screenwidth"] = Math.max(
+    window.screen.width,
+    window.innerWidth
+  );
 
   // Send initial URL
   initialValues[".clientdata_url_protocol"] = window.location.protocol;
