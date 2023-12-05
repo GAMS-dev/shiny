@@ -20,7 +20,7 @@ type MessageValue = Parameters<WebSocket["send"]>[0];
 declare function addCustomMessageHandler(type: string, handler: Handler): void;
 declare class ShinyApp {
     $socket: ShinyWebSocket | null;
-    actionQueue: AsyncQueue<() => Promise<void> | void>;
+    taskQueue: AsyncQueue<() => Promise<void> | void>;
     config: {
         workerId: string;
         sessionId: string;
@@ -61,13 +61,13 @@ declare class ShinyApp {
         next: () => number;
         reset: () => void;
     };
-    onDisconnected(): void;
+    onDisconnected(reloading?: boolean): void;
     onConnected(): void;
     makeRequest(method: string, args: unknown[], onSuccess: OnSuccessRequest, onError: OnErrorRequest, blobs: Array<ArrayBuffer | Blob | string> | undefined): void;
     $sendMsg(msg: MessageValue): void;
     receiveError(name: string, error: ErrorsMessageValue): void;
     receiveOutput<T>(name: string, value: T): Promise<T | undefined>;
-    bindOutput(id: string, binding: OutputBindingAdapter): OutputBindingAdapter;
+    bindOutput(id: string, binding: OutputBindingAdapter): Promise<OutputBindingAdapter>;
     unbindOutput(id: string, binding: OutputBindingAdapter): boolean;
     private _narrowScopeComponent;
     private _narrowScope;

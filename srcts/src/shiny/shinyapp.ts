@@ -114,7 +114,7 @@ class ShinyApp {
   // without overlapping. This is used for handling incoming messages from the
   // server and scheduling outgoing messages to the server, and can be used for
   // other things tasks as well.
-  actionQueue = new AsyncQueue<() => Promise<void> | void>();
+  taskQueue = new AsyncQueue<() => Promise<void> | void>();
 
   config: {
     workerId: string;
@@ -237,14 +237,18 @@ class ShinyApp {
         socket.send(msg as string);
       }
 
+      // This launches the action queue loop, which just runs in the background,
+      // so we don't need to await it.
+      /* eslint-disable @typescript-eslint/no-floating-promises */
       this.startActionQueueLoop();
     };
     socket.onmessage = (e) => {
-      this.actionQueue.enqueue(async () => await this.dispatchMessage(e.data));
+      this.taskQueue.enqueue(async () => await this.dispatchMessage(e.data));
     };
     // Called when a successfully-opened websocket is closed, or when an
     // attempt to open a connection fails.
-    socket.onclose = () => {
+    socket.onclose = (e) => {
+      const restarting = e.code === 1012; // Uvicorn sets this code when autoreloading
       // These things are needed only if we've successfully opened the
       // websocket.
       if (hasOpened) {
@@ -257,7 +261,7 @@ class ShinyApp {
         this.$notifyDisconnected();
       }
 
-      this.onDisconnected(); // Must be run before this.$removeSocket()
+      this.onDisconnected(restarting); // Must be run before this.$removeSocket()
       this.$removeSocket();
     };
     return socket;
@@ -266,7 +270,7 @@ class ShinyApp {
   async startActionQueueLoop(): Promise<void> {
     // eslint-disable-next-line no-constant-condition
     while (true) {
-      const action = await this.actionQueue.dequeue();
+      const action = await this.taskQueue.dequeue();
 
       try {
         await action();
@@ -333,13 +337,12 @@ class ShinyApp {
     };
   })();
 
-  onDisconnected(): void {
+  onDisconnected(reloading = false): void {
     // Add gray-out overlay, if not already present
-    const $overlay = $("#shiny-disconnected-overlay");
-
-    if ($overlay.length === 0) {
+    if ($("#shiny-disconnected-overlay").length === 0) {
       $(document.body).append('<div id="shiny-disconnected-overlay"></div>');
     }
+    $("#shiny-disconnected-overlay").toggleClass("reloading", reloading);
 
     // To try a reconnect, both the app (this.$allowReconnect) and the
     // server (this.$socket.allowReconnect) must allow reconnections, or
@@ -507,12 +510,16 @@ class ShinyApp {
     return value;
   }
 
-  bindOutput(id: string, binding: OutputBindingAdapter): OutputBindingAdapter {
+  async bindOutput(
+    id: string,
+    binding: OutputBindingAdapter
+  ): Promise<OutputBindingAdapter> {
     if (!id) throw "Can't bind an element with no ID";
     if (this.$bindings[id]) throw "Duplicate binding for ID " + id;
     this.$bindings[id] = binding;
 
-    if (this.$values[id] !== undefined) binding.onValueChange(this.$values[id]);
+    if (this.$values[id] !== undefined)
+      await binding.onValueChange(this.$values[id]);
     else if (this.$errors[id] !== undefined)
       binding.onValueError(this.$errors[id]);
 
@@ -710,7 +717,7 @@ class ShinyApp {
 
     addMessageHandler(
       "inputMessages",
-      (message: Array<{ id: string; message: unknown }>) => {
+      async (message: Array<{ id: string; message: unknown }>) => {
         // inputMessages should be an array
         for (let i = 0; i < message.length; i++) {
           const $obj = $(".shiny-bound-input#" + $escape(message[i].id));
@@ -725,8 +732,16 @@ class ShinyApp {
             evt.message = message[i].message;
             evt.binding = inputBinding;
             $(el).trigger(evt);
-            if (!evt.isDefaultPrevented())
-              inputBinding.receiveMessage(el, evt.message);
+            if (!evt.isDefaultPrevented()) {
+              try {
+                await inputBinding.receiveMessage(el, evt.message);
+              } catch (error) {
+                console.error(
+                  "[shiny] Error in inputBinding.receiveMessage()",
+                  { error, binding: inputBinding, message: evt.message }
+                );
+              }
+            }
           }
         }
       }
@@ -811,15 +826,15 @@ class ShinyApp {
       }
     });
 
-    addMessageHandler("custom", (message: { [key: string]: unknown }) => {
+    addMessageHandler("custom", async (message: { [key: string]: unknown }) => {
       // For old-style custom messages - should deprecate and migrate to new
       // method
       const shinyOnCustomMessage = getShinyOnCustomMessage();
 
-      if (shinyOnCustomMessage) shinyOnCustomMessage(message);
+      if (shinyOnCustomMessage) await shinyOnCustomMessage(message);
 
       // Send messages.foo and messages.bar to appropriate handlers
-      this._sendMessagesToHandlers(
+      await this._sendMessagesToHandlers(
         message,
         customMessageHandlers,
         customMessageHandlerOrder
