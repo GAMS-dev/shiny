@@ -1,7 +1,7 @@
 import $ from "jquery";
 import { windowDevicePixelRatio } from "../window/pixelRatio";
 import type { MapValuesUnion, MapWithResult } from "./extraTypes";
-import { hasOwnProperty, hasDefinedProperty } from "./object";
+import { hasDefinedProperty, hasOwnProperty } from "./object";
 
 function escapeHTML(str: string): string {
   /* eslint-disable @typescript-eslint/naming-convention */
@@ -14,6 +14,7 @@ function escapeHTML(str: string): string {
     "'": "&#039;",
     "/": "&#x2F;",
   };
+  /* eslint-enable @typescript-eslint/naming-convention */
 
   return str.replace(/[&<>'"/]/g, function (m) {
     return escaped[m] as string;
@@ -143,11 +144,25 @@ function pixelRatio(): number {
   }
 }
 
+function getBoundingClientSizeBeforeZoom(el: HTMLElement): {
+  width: number;
+  height: number;
+} {
+  const rect = el.getBoundingClientRect();
+  // Cast to any because currentCSSZoom isn't in the type def of HTMLElement
+  // TODO: typescript >= 5.5.2 added this property to the type definition
+  const zoom = (el as any).currentCSSZoom || 1;
+  return {
+    width: rect.width / zoom,
+    height: rect.height / zoom,
+  };
+}
+
 // Takes a string expression and returns a function that takes an argument.
 //
 // When the function is executed, it will evaluate that expression using
 // "with" on the argument value, and return the result.
-function scopeExprToFunc(expr: string): (scope: unknown) => boolean {
+function scopeExprToFunc(expr: string): (scope: unknown) => unknown {
   /*jshint evil: true */
   const exprEscaped = expr
     .replace(/[\\"']/g, "\\$&")
@@ -158,7 +173,7 @@ function scopeExprToFunc(expr: string): (scope: unknown) => boolean {
     // \b has a special meaning; need [\b] to match backspace char.
     .replace(/[\b]/g, "\\b");
 
-  let func: () => boolean;
+  let func: () => unknown;
 
   try {
     // @ts-expect-error; Do not know how to type this _dangerous_ situation
@@ -177,7 +192,7 @@ function scopeExprToFunc(expr: string): (scope: unknown) => boolean {
     throw e;
   }
 
-  return function (scope: unknown): boolean {
+  return function (scope: unknown): unknown {
     return func.call(scope);
   };
 }
@@ -397,6 +412,7 @@ export {
   formatDateUTC,
   makeResizeFilter,
   pixelRatio,
+  getBoundingClientSizeBeforeZoom,
   scopeExprToFunc,
   asArray,
   mergeSort,
