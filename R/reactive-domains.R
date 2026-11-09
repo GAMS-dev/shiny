@@ -43,13 +43,27 @@ NULL
 ## ------------------------------------------------------------------------
 createMockDomain <- function() {
   callbacks <- Callbacks$new()
+  destroyCBs <- Callbacks$new()
   ended <- FALSE
+  destroyed <- FALSE
   domain <- new.env(parent = emptyenv())
+  domain$ns <- function(id) id
+  domain$token <- "mock-domain"
   domain$onEnded <- function(callback) {
     return(callbacks$register(callback))
   }
   domain$isEnded <- function() {
     ended
+  }
+  domain$onDestroy <- function(callback) {
+    return(destroyCBs$register(callback))
+  }
+  domain$destroy <- function() {
+    if (!destroyed) {
+      destroyed <<- TRUE
+      destroyCBs$invoke()
+    }
+    invisible()
   }
   domain$reactlog <- function(logEntry) NULL
   domain$end <- function() {
@@ -57,6 +71,7 @@ createMockDomain <- function() {
       ended <<- TRUE
       callbacks$invoke()
     }
+    domain$destroy()
     invisible()
   }
   domain$incrementBusyCount <- function() NULL
@@ -95,7 +110,11 @@ getDefaultReactiveDomain <- function() {
 #' @rdname domains
 #' @export
 withReactiveDomain <- function(domain, expr) {
-  promises::with_promise_domain(createVarPromiseDomain(.globals, "domain", domain), expr)
+  # Use `promises::` as it shows up in the stack trace
+  promises::with_promise_domain(
+    createVarPromiseDomain(.globals, "domain", domain),
+    expr
+  )
 }
 
 #

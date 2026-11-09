@@ -1,5 +1,4 @@
 import $ from "jquery";
-import { Shiny } from "..";
 import type { InputBinding, OutputBinding } from "../bindings";
 import type { SubscribeEventPriority } from "../bindings/input/inputBinding";
 import { OutputBindingAdapter } from "../bindings/outputAdapter";
@@ -11,7 +10,7 @@ import type {
 } from "../inputPolicies";
 import type { EventPriority } from "../inputPolicies/inputPolicy";
 import { shinyAppBindOutput, shinyAppUnbindOutput } from "./initedMethods";
-import { sendImageSizeFns } from "./sendImageSize";
+import { sendOutputInfoFns } from "./sendOutputInfo";
 
 type BindScope = HTMLElement | JQuery<HTMLElement>;
 
@@ -29,7 +28,7 @@ function valueChangeCallback(
   inputs: InputValidateDecorator,
   binding: InputBinding,
   el: HTMLElement,
-  priority?: SubscribeEventPriority
+  priority?: SubscribeEventPriority,
 ) {
   let id = binding.getId(el);
 
@@ -48,7 +47,7 @@ function valueChangeCallback(
 
 // Narrow the type of the subscribe callback value to EventPriority
 function normalizeEventPriority(
-  priority?: SubscribeEventPriority
+  priority?: SubscribeEventPriority,
 ): EventPriority {
   if (priority === false || priority === undefined) {
     return "immediate";
@@ -230,13 +229,12 @@ type BindInputsCtx = {
   inputsRate: InputRateDecorator;
   inputBindings: BindingRegistry<InputBinding>;
   outputBindings: BindingRegistry<OutputBinding>;
-  sendOutputHiddenState: () => void;
-  maybeAddThemeObserver: (el: HTMLElement) => void;
   initDeferredIframes: () => void;
+  outputIsRecalculating: (id: string) => boolean;
 };
 function bindInputs(
   shinyCtx: BindInputsCtx,
-  scope: BindScope = document.documentElement
+  scope: BindScope = document.documentElement,
 ): {
   [key: string]: {
     value: ReturnType<InputBinding["getValue"]>;
@@ -300,7 +298,7 @@ function bindInputs(
         inputsRate.setRatePolicy(
           effectiveId,
           ratePolicy.policy,
-          ratePolicy.delay
+          ratePolicy.delay,
         );
       }
 
@@ -318,12 +316,8 @@ function bindInputs(
 }
 
 async function bindOutputs(
-  {
-    sendOutputHiddenState,
-    maybeAddThemeObserver,
-    outputBindings,
-  }: BindInputsCtx,
-  scope: BindScope = document.documentElement
+  { outputBindings, outputIsRecalculating }: BindInputsCtx,
+  scope: BindScope = document.documentElement,
 ): Promise<void> {
   const $scope = $(scope);
 
@@ -354,12 +348,6 @@ async function bindOutputs(
         continue;
       }
 
-      // If this element reports its CSS styles to getCurrentOutputInfo()
-      // then it should have a MutationObserver() to resend CSS if its
-      // style/class attributes change. This observer should already exist
-      // for _static_ UI, but not yet for _dynamic_ UI
-      maybeAddThemeObserver(el);
-
       const bindingAdapter = new OutputBindingAdapter(el, binding);
 
       await shinyAppBindOutput(id, bindingAdapter);
@@ -367,7 +355,7 @@ async function bindOutputs(
       $el.addClass("shiny-bound-output");
       if (!$el.attr("aria-live")) $el.attr("aria-live", "polite");
 
-      if (Shiny.shinyapp?.$outputProgress.isRecalculating(id)) {
+      if (outputIsRecalculating(id)) {
         bindingAdapter.showProgress(true);
       }
 
@@ -382,13 +370,12 @@ async function bindOutputs(
   }
 
   // Send later in case DOM layout isn't final yet.
-  setTimeout(sendImageSizeFns.regular, 0);
-  setTimeout(sendOutputHiddenState, 0);
+  setTimeout(() => sendOutputInfoFns.regular(), 0);
 }
 
 function unbindInputs(
   scope: BindScope = document.documentElement,
-  includeSelf = false
+  includeSelf = false,
 ) {
   const inputs: Array<HTMLElement | JQuery<HTMLElement>> = $(scope)
     .find(".shiny-bound-input")
@@ -418,9 +405,8 @@ function unbindInputs(
   }
 }
 function unbindOutputs(
-  { sendOutputHiddenState }: BindInputsCtx,
   scope: BindScope = document.documentElement,
-  includeSelf = false
+  includeSelf = false,
 ) {
   const outputs: Array<HTMLElement | JQuery<HTMLElement>> = $(scope)
     .find(".shiny-bound-output")
@@ -442,6 +428,27 @@ function unbindOutputs(
     bindingsRegistry.removeBinding(id, "output");
     $el.removeClass("shiny-bound-output");
     $el.removeData("shiny-output-binding");
+
+    for (const prefix of [
+      "shiny-resize-observer",
+      "shiny-intersection-observer",
+      "shiny-mutate-observer",
+    ]) {
+      const observer = $el.data(prefix);
+
+      if (observer) {
+        observer.disconnect();
+        $el.removeData(prefix);
+      }
+
+      const callback = $el.data(prefix + "-callback") as
+        | { cancel?: () => void }
+        | undefined;
+
+      callback?.cancel?.();
+      $el.removeData(prefix + "-callback");
+    }
+
     $el.trigger({
       type: "shiny:unbound",
       // @ts-expect-error; Can not remove info on a established, malformed Event object
@@ -451,15 +458,14 @@ function unbindOutputs(
   }
 
   // Send later in case DOM layout isn't final yet.
-  setTimeout(sendImageSizeFns.regular, 0);
-  setTimeout(sendOutputHiddenState, 0);
+  setTimeout(() => sendOutputInfoFns.regular(), 0);
 }
 
 // (Named used before TS conversion)
 // eslint-disable-next-line @typescript-eslint/naming-convention
 async function _bindAll(
   shinyCtx: BindInputsCtx,
-  scope: BindScope
+  scope: BindScope,
 ): Promise<ReturnType<typeof bindInputs>> {
   await bindOutputs(shinyCtx, scope);
   const currentInputs = bindInputs(shinyCtx, scope);
@@ -473,17 +479,13 @@ async function _bindAll(
 
   return currentInputs;
 }
-function unbindAll(
-  shinyCtx: BindInputsCtx,
-  scope: BindScope,
-  includeSelf = false
-): void {
+function unbindAll(scope: BindScope, includeSelf = false): void {
   unbindInputs(scope, includeSelf);
-  unbindOutputs(shinyCtx, scope, includeSelf);
+  unbindOutputs(scope, includeSelf);
 }
 async function bindAll(
   shinyCtx: BindInputsCtx,
-  scope: BindScope
+  scope: BindScope,
 ): Promise<void> {
   // _bindAll returns input values; it doesn't send them to the server.
   // Shiny.bindAll needs to send the values to the server.
@@ -502,5 +504,5 @@ async function bindAll(
   shinyCtx.initDeferredIframes();
 }
 
-export { unbindAll, bindAll, _bindAll };
-export type { BindScope, BindInputsCtx };
+export { _bindAll, bindAll, unbindAll };
+export type { BindInputsCtx, BindScope };

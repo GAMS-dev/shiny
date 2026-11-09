@@ -1,28 +1,45 @@
 # Revdeps
 
-## Failed to check (22)
+## Failed to check (38)
 
 |package              |version |error |warning |note |
 |:--------------------|:-------|:-----|:-------|:----|
-|bigPint              |?       |      |        |     |
-|bioCancer            |?       |      |        |     |
-|EBImage              |?       |      |        |     |
-|FAfA                 |0.3     |1     |        |     |
+|ADAMgui              |?       |      |        |     |
+|AssumpSure           |?       |      |        |     |
+|boinet               |1.5.0   |1     |        |     |
+|brms                 |?       |      |        |     |
+|cheem                |?       |      |        |     |
+|ctsem                |3.10.4  |1     |        |1    |
+|detourr              |?       |      |        |     |
+|EMMAgeo              |?       |      |        |     |
+|FactEff              |?       |      |        |     |
+|FAfA                 |?       |      |        |     |
 |fio                  |0.1.6   |1     |        |     |
-|GeneNetworkBuilder   |?       |      |        |     |
-|gradientPickerD3     |?       |      |        |     |
-|InterCellar          |?       |      |        |     |
-|LACE                 |?       |      |        |     |
-|lavaan.shiny         |1.2     |1     |        |     |
-|LDABiplots           |?       |      |        |     |
-|LDAShiny             |?       |      |        |     |
+|fitteR               |?       |      |        |     |
+|FossilSimShiny       |?       |      |        |     |
+|GDINA                |?       |      |        |     |
+|ggsem                |?       |      |        |     |
+|grandR               |?       |      |        |     |
+|GSVA                 |?       |      |        |     |
+|hbsaems              |?       |      |        |     |
+|langevitour          |?       |      |        |     |
+|lavaan.shiny         |?       |      |        |     |
+|lcsm                 |?       |      |        |     |
+|linkspotter          |?       |      |        |     |
 |loon.shiny           |?       |      |        |     |
-|MatrixQCvis          |?       |      |        |     |
-|metricsgraphics      |?       |      |        |     |
-|modchart             |?       |      |        |     |
-|omicsViewer          |?       |      |        |     |
-|RSP                  |0.4     |1     |        |     |
-|rstanarm             |2.32.1  |1     |        |     |
-|sphereML             |0.1.1   |1     |        |     |
+|MOsemiind            |0.1.0   |1     |        |     |
+|MVN                  |?       |      |        |     |
+|pandemonium          |?       |      |        |     |
+|polarisR             |?       |      |        |     |
+|Prostar              |?       |      |        |     |
+|RCTrep               |1.2.0   |1     |        |     |
+|recmap               |?       |      |        |     |
+|rstanarm             |2.32.2  |1     |        |     |
+|semdrw               |?       |      |        |     |
+|shotGroups           |?       |      |        |     |
+|sphereML             |?       |      |        |     |
+|spinifex             |?       |      |        |     |
 |StatTeacherAssistant |?       |      |        |     |
-|TestAnaAPP           |1.1.2   |1     |        |     |
+|SurprisalAnalysis    |?       |      |        |     |
+|TestAnaAPP           |?       |      |        |     |
+

@@ -12,7 +12,7 @@ class Debouncer<X extends AnyVoidFunction> implements InputRatePolicy<X> {
   constructor(
     target: InputPolicy | null,
     func: X,
-    delayMs: number | undefined
+    delayMs: number | undefined,
   ) {
     this.target = target;
     this.func = func;
@@ -38,6 +38,10 @@ class Debouncer<X extends AnyVoidFunction> implements InputRatePolicy<X> {
     this.$clearTimer();
     this.args = args;
     this.$invoke();
+  }
+  cancel(): void {
+    this.$clearTimer();
+    this.args = null;
   }
   isPending(): boolean {
     return this.timerId !== null;
@@ -70,15 +74,21 @@ class Debouncer<X extends AnyVoidFunction> implements InputRatePolicy<X> {
 // 900ms intervals will result in a single execution
 // of the underlying function, 1000ms after the 17th
 // call.
+type DebouncedFunction<T extends (...args: unknown[]) => void> = ((
+  ...args: Parameters<T>
+) => void) & {
+  cancel: () => void;
+};
+
 function debounce<T extends (...args: unknown[]) => void>(
   threshold: number | undefined,
-  func: T
-): (...args: Parameters<T>) => void {
+  func: T,
+): DebouncedFunction<T> {
   let timerId: ReturnType<typeof setTimeout> | null = null;
 
   // Do not alter `function()` into an arrow function.
   // The `this` context needs to be dynamically bound
-  return function thisFunc(...args: Parameters<T>) {
+  const debounced = function thisFunc(...args: Parameters<T>) {
     if (timerId !== null) {
       clearTimeout(timerId);
       timerId = null;
@@ -92,6 +102,16 @@ function debounce<T extends (...args: unknown[]) => void>(
       func.apply(thisFunc, args);
     }, threshold);
   };
+
+  debounced.cancel = function () {
+    if (timerId !== null) {
+      clearTimeout(timerId);
+      timerId = null;
+    }
+  };
+
+  return debounced;
 }
 
-export { Debouncer, debounce };
+export { debounce, Debouncer };
+export type { DebouncedFunction };

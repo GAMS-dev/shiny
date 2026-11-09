@@ -1,7 +1,5 @@
-library(shiny)
-library(testthat)
+skip_if_not_installed("future")
 library(future, warn.conflicts = FALSE)
-library(promises)
 
 test_that("handles observers", {
   server <- function(input, output, session) {
@@ -290,6 +288,9 @@ test_that("works with async", {
 })
 
 test_that("works with multiple promises in parallel", {
+  # This test is inherently about timing which is against CRAN's policy.
+  testthat::skip_on_cran()
+
   server <- function(input, output, session) {
     output$txt1 <- renderText({
       future({
@@ -490,20 +491,21 @@ test_that("session ended handlers work", {
   server <- function(input, output, session){}
 
   testServer(server, {
-    rv <- reactiveValues(closed = FALSE)
+    state <- new.env(parent = emptyenv())
+    state$closed <- FALSE
     session$onEnded(function(){
-      rv$closed <- TRUE
+      state$closed <- TRUE
     })
 
     expect_equal(session$isEnded(), FALSE)
     expect_equal(session$isClosed(), FALSE)
-    expect_false(rv$closed)
+    expect_false(state$closed)
 
     session$close()
 
     expect_equal(session$isEnded(), TRUE)
     expect_equal(session$isClosed(), TRUE)
-    expect_true(rv$closed)
+    expect_true(state$closed)
   })
 })
 
@@ -746,7 +748,7 @@ test_that("promise chains evaluate in correct order", {
 
   server <- function(input, output, session) {
     r1 <- reactive({
-      promise(function(resolve, reject) {
+      promises::promise(function(resolve, reject) {
         pushMessage("promise 1")
         resolve(input$go)
       })$then(function(value) {
@@ -755,7 +757,7 @@ test_that("promise chains evaluate in correct order", {
       })
     })
     r2 <- reactive({
-      promise(function(resolve, reject) {
+      promises::promise(function(resolve, reject) {
         pushMessage("promise 2")
         resolve(input$go)
       })$then(function(value) {

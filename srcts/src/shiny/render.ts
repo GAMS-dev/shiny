@@ -1,13 +1,13 @@
 import $ from "jquery";
-import { asArray, hasDefinedProperty } from "../utils";
 import { isIE } from "../utils/browser";
+import { asArray, hasDefinedProperty } from "../utils/object";
 import type { BindScope } from "./bind";
 import {
   shinyBindAll,
   shinyInitializeInputs,
   shinyUnbindAll,
 } from "./initedMethods";
-import { sendImageSizeFns } from "./sendImageSize";
+import { sendOutputInfoFns } from "./sendOutputInfo";
 
 import type { WherePosition } from "./singletons";
 import { renderHtml as singletonsRenderHtml } from "./singletons";
@@ -38,7 +38,7 @@ import { renderHtml as singletonsRenderHtml } from "./singletons";
 async function renderContentAsync(
   el: BindScope,
   content: string | { html: string; deps?: HtmlDep[] } | null,
-  where: WherePosition = "replace"
+  where: WherePosition = "replace",
 ): Promise<void> {
   if (where === "replace") {
     shinyUnbindAll(el);
@@ -82,7 +82,7 @@ async function renderContentAsync(
 function renderContent(
   el: BindScope,
   content: string | { html: string; deps?: HtmlDep[] } | null,
-  where: WherePosition = "replace"
+  where: WherePosition = "replace",
 ): Promise<void> {
   if (where === "replace") {
     shinyUnbindAll(el);
@@ -131,7 +131,7 @@ async function renderHtmlAsync(
   html: string,
   el: BindScope,
   dependencies: HtmlDep[],
-  where: WherePosition = "replace"
+  where: WherePosition = "replace",
 ): Promise<ReturnType<typeof singletonsRenderHtml>> {
   await renderDependenciesAsync(dependencies);
   return singletonsRenderHtml(html, el, where);
@@ -142,7 +142,7 @@ function renderHtml(
   html: string,
   el: BindScope,
   dependencies: HtmlDep[],
-  where: WherePosition = "replace"
+  where: WherePosition = "replace",
 ): ReturnType<typeof singletonsRenderHtml> {
   renderDependencies(dependencies);
   return singletonsRenderHtml(html, el, where);
@@ -152,7 +152,7 @@ function renderHtml(
 // renderDependencies
 // =============================================================================
 async function renderDependenciesAsync(
-  dependencies: HtmlDep[] | null
+  dependencies: HtmlDep[] | null,
 ): Promise<void> {
   if (dependencies) {
     for (const dep of dependencies) {
@@ -267,7 +267,7 @@ function addStylesheetsAndRestyle(links: HTMLLinkElement[]): void {
       // should have been applied synchronously.
       oldStyle.remove();
       removeSheet(oldSheet);
-      sendImageSizeFns.transitioned();
+      sendOutputInfoFns.transitioned();
     };
     xhr.send();
   };
@@ -327,7 +327,7 @@ function addStylesheetsAndRestyle(links: HTMLLinkElement[]): void {
       // base64-encoded and inlined into the href. We also add a dummy DOM
       // element that the CSS applies to. The dummy CSS includes a
       // transition, and when the `transitionend` event happens, we call
-      // sendImageSizeFns.transitioned() and remove the old sheet. We also remove the
+      // sendOutputInfoFns.transitioned() and remove the old sheet. We also remove the
       // dummy DOM element and dummy CSS content.
       //
       // The reason this works is because (we assume) that if multiple
@@ -337,7 +337,7 @@ function addStylesheetsAndRestyle(links: HTMLLinkElement[]): void {
       //
       // Because it is common for multiple stylesheets to arrive close
       // together, but not on exactly the same tick, we call
-      // sendImageSizeFns.transitioned(), which is debounced. Otherwise, it can result in
+      // sendOutputInfoFns.transitioned(), which is debounced. Otherwise, it can result in
       // the same plot being redrawn multiple times with different
       // styling.
       $link.attr("onload", () => {
@@ -350,7 +350,7 @@ function addStylesheetsAndRestyle(links: HTMLLinkElement[]): void {
         $dummyEl.one("transitionend", () => {
           $dummyEl.remove();
           removeSheet(oldSheet);
-          sendImageSizeFns.transitioned();
+          sendOutputInfoFns.transitioned();
         });
         $(document.body).append($dummyEl);
 
@@ -372,14 +372,14 @@ function getStylesheetLinkTags(dep: HtmlDepNormalized): HTMLLinkElement[] {
   // pass them through to `addStylesheetsAndRestyle` below.
   return dep.stylesheet.map((x) => {
     // Add "rel" and "type" fields if not already present.
-    if (!hasDefinedProperty(x, "rel")) x.rel = "stylesheet";
-    if (!hasDefinedProperty(x, "type")) x.type = "text/css";
+    if (x.rel === undefined) x.rel = "stylesheet";
+    if (x.type === undefined) x.type = "text/css";
 
     const link = document.createElement("link");
 
     Object.entries(x).forEach(function ([attr, val]: [
       string,
-      string | undefined
+      string | undefined,
     ]) {
       if (attr === "href") {
         val = encodeURI(val as string);
@@ -394,7 +394,7 @@ function getStylesheetLinkTags(dep: HtmlDepNormalized): HTMLLinkElement[] {
 
 function appendStylesheetLinkTags(
   dep: HtmlDepNormalized,
-  $head: JQuery<HTMLElement>
+  $head: JQuery<HTMLElement>,
 ): void {
   const stylesheetLinks = getStylesheetLinkTags(dep);
 
@@ -468,7 +468,7 @@ async function appendScriptTagsAsync(dep: HtmlDepNormalized): Promise<void> {
 
 function appendMetaTags(
   dep: HtmlDepNormalized,
-  $head: JQuery<HTMLElement>
+  $head: JQuery<HTMLElement>,
 ): void {
   dep.meta.forEach((x) => {
     const meta = document.createElement("meta");
@@ -482,7 +482,7 @@ function appendMetaTags(
 
 function appendAttachmentLinkTags(
   dep: HtmlDepNormalized,
-  $head: JQuery<HTMLElement>
+  $head: JQuery<HTMLElement>,
 ): void {
   dep.attachment.forEach((x) => {
     const link = $("<link rel='attachment'>")
@@ -495,7 +495,7 @@ function appendAttachmentLinkTags(
 
 function appendExtraHeadContent(
   dep: HtmlDepNormalized,
-  $head: JQuery<HTMLElement>
+  $head: JQuery<HTMLElement>,
 ): void {
   if (dep.head) {
     const $newHead = $("<head></head>");
@@ -684,12 +684,12 @@ function normalizeHtmlDependency(dep: HtmlDep): HtmlDepNormalized {
 }
 
 export {
-  renderContentAsync,
-  renderContent,
-  renderHtmlAsync,
-  renderHtml,
-  renderDependenciesAsync,
-  renderDependencies,
   registerDependency,
+  renderContent,
+  renderContentAsync,
+  renderDependencies,
+  renderDependenciesAsync,
+  renderHtml,
+  renderHtmlAsync,
 };
 export type { HtmlDep };

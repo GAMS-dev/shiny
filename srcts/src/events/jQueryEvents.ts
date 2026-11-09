@@ -1,5 +1,4 @@
 // Used to avoid isolated module warning
-import type { JQueryEventHandlerBase } from "bootstrap";
 import "jquery";
 
 type EvtPrefix<T extends string> = `${T}.${string}`;
@@ -11,46 +10,34 @@ declare global {
 
     on(
       events: EvtPrefix<"mousdown">,
-      handler: EvtFn<JQuery.MouseDownEvent>
+      handler: EvtFn<JQuery.MouseDownEvent>,
     ): this;
     on(
       events: EvtPrefix<"dblclick">,
-      handler: EvtFn<JQuery.DoubleClickEvent>
+      handler: EvtFn<JQuery.DoubleClickEvent>,
     ): this;
     on(
       events: EvtPrefix<"dblclick2">,
       // Note: This may not be the _right type_, but it is how it is handled internally
-      handler: EvtFn<JQuery.MouseDownEvent>
+      handler: EvtFn<JQuery.MouseDownEvent>,
     ): this;
     on(
       events: EvtPrefix<"mousemove">,
-      handler: EvtFn<JQuery.MouseMoveEvent>
+      handler: EvtFn<JQuery.MouseMoveEvent>,
     ): this;
     on(
       events: EvtPrefix<"mouseout">,
-      handler: EvtFn<JQuery.MouseOutEvent>
+      handler: EvtFn<JQuery.MouseOutEvent>,
     ): this;
     on(
       events: EvtPrefix<"mousedown">,
-      handler: EvtFn<JQuery.MouseDownEvent>
+      handler: EvtFn<JQuery.MouseDownEvent>,
     ): this;
     on(
       events: EvtPrefix<"mousedown2">,
-      handler: EvtFn<JQuery.MouseDownEvent>
+      handler: EvtFn<JQuery.MouseDownEvent>,
     ): this;
     on(events: EvtPrefix<"mouseup">, handler: EvtFn<JQuery.MouseUpEvent>): this;
     on(events: EvtPrefix<"resize">, handler: EvtFn<JQuery.ResizeEvent>): this;
-
-    on(
-      events: `shown.bs.${string}.sendImageSize`,
-      selector: string,
-      handler: (
-        this: HTMLElement,
-        e: JQueryEventHandlerBase<HTMLElement, any>
-        // e: JQuery.Event & {
-        //   namespace: string;
-        // }
-      ) => void
-    ): this;
   }
 }

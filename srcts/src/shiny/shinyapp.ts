@@ -70,6 +70,8 @@ const messageHandlers: { [key: string]: Handler } = {};
 const customMessageHandlerOrder: string[] = [];
 const customMessageHandlers: { [key: string]: Handler } = {};
 
+const conditionalShownClass = "shiny-conditional--shown";
+
 // Adds Shiny (internal) message handler
 function addMessageHandler(type: string, handler: Handler) {
   if (messageHandlers[type]) {
@@ -212,7 +214,7 @@ class ShinyApp {
         defaultPath += "websocket/";
 
         const ws: ShinyWebSocket = new WebSocket(
-          protocol + "//" + window.location.host + defaultPath
+          protocol + "//" + window.location.host + defaultPath,
         );
 
         ws.binaryType = "arraybuffer";
@@ -238,7 +240,7 @@ class ShinyApp {
         JSON.stringify({
           method: "init",
           data: this.$initialInput,
-        })
+        }),
       );
 
       while (this.$pendingMessages.length) {
@@ -278,7 +280,6 @@ class ShinyApp {
   }
 
   async startActionQueueLoop(): Promise<void> {
-    // eslint-disable-next-line no-constant-condition
     while (true) {
       try {
         const action = await this.taskQueue.dequeue();
@@ -361,7 +362,6 @@ class ShinyApp {
     // only be used for testing.
     if (
       (this.$allowReconnect === true &&
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         this.$socket!.allowReconnect === true) ||
       this.$allowReconnect === "force"
     ) {
@@ -407,7 +407,7 @@ class ShinyApp {
     args: unknown[],
     onSuccess: OnSuccessRequest,
     onError: OnErrorRequest,
-    blobs: Array<ArrayBuffer | Blob | string> | undefined
+    blobs: Array<ArrayBuffer | Blob | string> | undefined,
   ): void {
     let requestId = this.$nextRequestId;
 
@@ -455,8 +455,8 @@ class ShinyApp {
 
         payload.push(
           uint32ToBuf(
-            (blob as ArrayBuffer).byteLength || (blob as Blob).size || 0
-          )
+            (blob as ArrayBuffer).byteLength || (blob as Blob).size || 0,
+          ),
         );
         payload.push(blob);
       }
@@ -522,7 +522,7 @@ class ShinyApp {
 
   async bindOutput(
     id: string,
-    binding: OutputBindingAdapter
+    binding: OutputBindingAdapter,
   ): Promise<OutputBindingAdapter> {
     if (!id) throw new Error("Can't bind an element with no ID");
     this.$bindings[id] = binding;
@@ -549,7 +549,7 @@ class ShinyApp {
   // necessary.
   private _narrowScopeComponent<T>(
     scopeComponent: { [key: string]: T },
-    nsPrefix: string
+    nsPrefix: string,
   ) {
     return Object.keys(scopeComponent)
       .filter((k) => k.indexOf(nsPrefix) === 0)
@@ -569,7 +569,7 @@ class ShinyApp {
       input: InputValues;
       output: { [key: string]: any };
     },
-    nsPrefix: string
+    nsPrefix: string,
   ) {
     if (nsPrefix) {
       return {
@@ -616,16 +616,16 @@ class ShinyApp {
       const nsPrefix = el.attr("data-ns-prefix") as string;
       const nsScope = this._narrowScope(scope, nsPrefix);
       const show = Boolean(condFunc(nsScope));
-      const showing = el.css("display") !== "none";
+      const showing = el.hasClass(conditionalShownClass);
 
       if (show !== showing) {
         if (show) {
           el.trigger("show");
-          el.show();
+          el.addClass(conditionalShownClass);
           el.trigger("shown");
         } else {
           el.trigger("hide");
-          el.hide();
+          el.removeClass(conditionalShownClass);
           el.trigger("hidden");
         }
       }
@@ -672,7 +672,7 @@ class ShinyApp {
     await this._sendMessagesToHandlers(
       evt.message,
       messageHandlers,
-      messageHandlerOrder
+      messageHandlerOrder,
     );
 
     this.$updateConditionals();
@@ -685,7 +685,7 @@ class ShinyApp {
   private async _sendMessagesToHandlers(
     msgObj: { [key: string]: unknown },
     handlers: { [key: string]: Handler },
-    handlerOrder: string[]
+    handlerOrder: string[],
   ): Promise<void> {
     // Dispatch messages to handlers, if handler is present
     for (let i = 0; i < handlerOrder.length; i++) {
@@ -737,7 +737,7 @@ class ShinyApp {
             this.receiveError(key, message[key]);
           }
         }
-      }
+      },
     );
 
     addMessageHandler(
@@ -763,13 +763,13 @@ class ShinyApp {
               } catch (error) {
                 console.error(
                   "[shiny] Error in inputBinding.receiveMessage()",
-                  { error, binding: inputBinding, message: evt.message }
+                  { error, binding: inputBinding, message: evt.message },
                 );
               }
             }
           }
         }
-      }
+      },
     );
 
     addMessageHandler("javascript", (message: string) => {
@@ -792,7 +792,7 @@ class ShinyApp {
 
           if (handler) handler.call(this, message.message);
         }
-      }
+      },
     );
 
     addMessageHandler(
@@ -801,12 +801,12 @@ class ShinyApp {
         message:
           | { type: "remove"; message: string }
           | { type: "show"; message: Parameters<typeof showNotification>[0] }
-          | { type: void }
+          | { type: void },
       ) => {
         if (message.type === "show") await showNotification(message.message);
         else if (message.type === "remove") removeNotification(message.message);
         else throw "Unkown notification type: " + message.type;
-      }
+      },
     );
 
     addMessageHandler(
@@ -815,13 +815,13 @@ class ShinyApp {
         message:
           | { type: "remove"; message: string }
           | { type: "show"; message: Parameters<typeof showModal>[0] }
-          | { type: void }
+          | { type: void },
       ) => {
         if (message.type === "show") await showModal(message.message);
         // For 'remove', message content isn't used
         else if (message.type === "remove") removeModal();
         else throw "Unkown modal type: " + message.type;
-      }
+      },
     );
 
     addMessageHandler(
@@ -836,7 +836,7 @@ class ShinyApp {
             request.onSuccess(message.value as UploadInitValue);
           else request.onError(message.error as string);
         }
-      }
+      },
     );
 
     addMessageHandler("allowReconnect", (message: "force" | false | true) => {
@@ -862,7 +862,7 @@ class ShinyApp {
       await this._sendMessagesToHandlers(
         message,
         customMessageHandlers,
-        customMessageHandlerOrder
+        customMessageHandlerOrder,
       );
     });
 
@@ -875,7 +875,7 @@ class ShinyApp {
         };
         if (message.user) setShinyUser(message.user);
         $(document).trigger("shiny:sessioninitialized");
-      }
+      },
     );
 
     addMessageHandler("busy", (message: "busy" | "idle") => {
@@ -906,13 +906,13 @@ class ShinyApp {
             $().trigger("shiny:" + message.status);
           }
         }
-      }
+      },
     );
 
     addMessageHandler("reload", (message: true) => {
       window.location.reload();
       return;
-      message;
+      message; // eslint-disable-line @typescript-eslint/no-unused-expressions
     });
 
     addMessageHandler(
@@ -932,12 +932,12 @@ class ShinyApp {
           console.warn(
             'The selector you chose ("' +
               message.selector +
-              '") could not be found in the DOM.'
+              '") could not be found in the DOM.',
           );
           await renderHtmlAsync(
             message.content.html,
             $([]),
-            message.content.deps
+            message.content.deps,
           );
         } else {
           for (const target of targets) {
@@ -946,7 +946,7 @@ class ShinyApp {
             if (message.multiple === false) break;
           }
         }
-      }
+      },
     );
 
     addMessageHandler(
@@ -962,7 +962,7 @@ class ShinyApp {
           // returning nothing continues removing all remaining elements.
           return message.multiple === false ? false : undefined;
         });
-      }
+      },
     );
 
     addMessageHandler("frozen", (message: { ids: string[] }) => {
@@ -987,7 +987,7 @@ class ShinyApp {
     function getTabContent($tabset: JQuery<HTMLElement>) {
       const tabsetId = $tabset.attr("data-tabsetid") as string;
       const $tabContent = $(
-        "div.tab-content[data-tabsetid='" + $escape(tabsetId) + "']"
+        "div.tab-content[data-tabsetid='" + $escape(tabsetId) + "']",
       );
 
       return $tabContent;
@@ -996,7 +996,7 @@ class ShinyApp {
     function getTargetTabs(
       $tabset: JQuery<HTMLElement>,
       $tabContent: JQuery<HTMLElement>,
-      target: string
+      target: string,
     ) {
       const dataValue = "[data-value='" + $escape(target) + "']";
       const $aTag = $tabset.find("a" + dataValue);
@@ -1071,7 +1071,7 @@ class ShinyApp {
           const targetInfo = getTargetTabs(
             $tabset,
             $tabContent,
-            message.target as string
+            message.target as string,
           );
 
           $targetLiTag = targetInfo.$liTag;
@@ -1184,7 +1184,7 @@ class ShinyApp {
          */
         function getTabIndex(
           $tabset: JQuery<HTMLElement>,
-          tabsetId: string | undefined
+          tabsetId: string | undefined,
         ) {
           // The 0 is to ensure this works for empty tabsetPanels as well
           const existingTabIds = [0];
@@ -1196,10 +1196,10 @@ class ShinyApp {
 
             if ($tab.length > 0) {
               // remove leading url if it exists. (copy of bootstrap url stripper)
-              // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+
               const href = $tab.attr("href")!.replace(/.*(?=#[^\s]+$)/, "");
               // remove tab id to get the index
-              // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+
               const index = href!.replace("#tab-" + tabsetId + "-", "");
 
               existingTabIds.push(Number(index));
@@ -1218,7 +1218,7 @@ class ShinyApp {
             const $dropdownATag = $(
               "a.dropdown-toggle[data-value='" +
                 $escape(message.menuName) +
-                "']"
+                "']",
             );
 
             if ($dropdownATag.length === 0) {
@@ -1245,7 +1245,7 @@ class ShinyApp {
           }
           return null;
         }
-      }
+      },
     );
 
     // If the given tabset has no active tabs, select the first one
@@ -1282,7 +1282,7 @@ class ShinyApp {
     function tabApplyFunction(
       target: ReturnType<typeof getTargetTabs>,
       func: ($el: JQuery<HTMLElement>) => void,
-      liTags = false
+      liTags = false,
     ) {
       $.each(target, function (key, el) {
         if (key === "$liTag") {
@@ -1294,7 +1294,7 @@ class ShinyApp {
             el as ReturnType<typeof getTargetTabs>["$divTags"],
             function (i, div) {
               func(div);
-            }
+            },
           );
         } else if (liTags && key === "$liTags") {
           // $liTags is always an array (even if length = 0)
@@ -1302,7 +1302,7 @@ class ShinyApp {
             el as ReturnType<typeof getTargetTabs>["$liTags"],
             function (i, div) {
               func(div);
-            }
+            },
           );
         }
       });
@@ -1323,7 +1323,7 @@ class ShinyApp {
           shinyUnbindAll($el, true);
           $el.remove();
         }
-      }
+      },
     );
 
     addMessageHandler(
@@ -1348,7 +1348,7 @@ class ShinyApp {
             $el.removeClass("active");
           }
         }
-      }
+      },
     );
 
     addMessageHandler(
@@ -1405,14 +1405,14 @@ class ShinyApp {
         // This event needs to be triggered manually because pushState() never
         // causes a hashchange event to be fired,
         if (what === "hash") $(document).trigger("hashchange");
-      }
+      },
     );
 
     addMessageHandler(
       "resetBrush",
       (message: { brushId: Parameters<typeof resetBrush>[0] }) => {
         resetBrush(message.brushId);
-      }
+      },
     );
   }
 
@@ -1422,7 +1422,7 @@ class ShinyApp {
     // Progress for a particular object
     binding: function (
       this: ShinyApp,
-      message: { id: string; persistent: boolean }
+      message: { id: string; persistent: boolean },
     ): void {
       const key = message.id;
       const binding = this.$bindings[key];
@@ -1483,7 +1483,7 @@ class ShinyApp {
             '<span class="progress-message">message</span>' +
             '<span class="progress-detail"></span>' +
             "</div>" +
-            "</div>"
+            "</div>",
         );
 
         $progress.attr("id", message.id);
@@ -1495,7 +1495,7 @@ class ShinyApp {
         if ($progressBar) {
           $progressBar.css(
             "top",
-            depth * ($progressBar.height() as number) + "px"
+            depth * ($progressBar.height() as number) + "px",
           );
 
           // Stack text objects
@@ -1505,7 +1505,7 @@ class ShinyApp {
             "top",
             3 * ($progressBar.height() as number) +
               depth * ($progressText.outerHeight() as number) +
-              "px"
+              "px",
           );
 
           $progress.hide();
@@ -1596,10 +1596,8 @@ class ShinyApp {
     }
     url +=
       "/session/" +
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       encodeURIComponent(this.config!.sessionId) +
       "/dataobj/shinytest?w=" +
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       encodeURIComponent(this.config!.workerId) +
       "&nonce=" +
       randomId();
@@ -1608,5 +1606,5 @@ class ShinyApp {
   }
 }
 
-export { ShinyApp, addCustomMessageHandler };
-export type { Handler, ErrorsMessageValue, ShinyWebSocket };
+export { addCustomMessageHandler, ShinyApp };
+export type { ErrorsMessageValue, Handler, ShinyWebSocket };

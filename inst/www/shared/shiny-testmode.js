@@ -1,3 +1,3 @@
-/*! shiny 1.11..9999 | (c) 2012-2025 Posit Software, PBC. | License: GPL-3 | file LICENSE */
+/*! shiny 1.14.0.9999 | (c) 2012-2026 Posit Software, PBC. | License: MIT + file LICENSE */
 "use strict";(()=>{var t=eval;window.addEventListener("message",function(a){let e=a.data;e.code&&t(e.code)});})();
 //# sourceMappingURL=shiny-testmode.js.map
